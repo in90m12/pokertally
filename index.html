@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="撲克結算">
+<meta name="theme-color" content="#0a0f0d">
+<title>♠ 德州撲克結算器</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♠</text></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Noto Sans TC', -apple-system, 'Segoe UI', sans-serif; background: #0a0f0d; color: #e8e6e3; overflow-x: hidden; }
+  input { font-family: inherit; }
+  input[type="text"]:focus { border-color: #2ecc71 !important; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const CHIP_RATE = 100;
+const BUY_IN_CHIPS = 50000;
+const BUY_IN_CASH = 500;
+const MAX_ROUND_REBUYS = 4;
+
+function formatChips(n) { return n.toLocaleString(); }
+function formatCash(n) { return '$' + n.toLocaleString(); }
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// localStorage helpers
+function loadClub() {
+  try { const d = JSON.parse(localStorage.getItem('poker-club')); return d || { members: [], nextId: 1 }; }
+  catch { return { members: [], nextId: 1 }; }
+}
+function saveClub(members, nextId) {
+  try { localStorage.setItem('poker-club', JSON.stringify({ members, nextId })); } catch {}
+}
+
+const T = {
+  bg: "#0a0f0d", card: "#141e19", cardAlt: "#1a2a22",
+  accent: "#2ecc71", red: "#e74c3c", gold: "#f1c40f",
+  text: "#e8e6e3", dim: "#7a8a80", border: "#2a3a30", purple: "#9b59b6",
+};
+
+const S = {
+  input: { background: "rgba(0,0,0,0.3)", border: '1px solid '+T.border, borderRadius: "6px", color: T.text, padding: "8px 12px", fontSize: "14px", outline: "none", width: "100%" },
+  chipInput: { background: "rgba(0,0,0,0.3)", border: '1px solid '+T.border, borderRadius: "6px", color: T.gold, padding: "8px 10px", fontSize: "14px", outline: "none", width: "100px", textAlign: "right", fontWeight: 600 },
+  card: { background: T.card, border: '1px solid '+T.border, borderRadius: "12px", padding: "20px", marginBottom: "16px" },
+  row: { display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", borderRadius: "8px", marginBottom: "6px", background: T.cardAlt },
+  sec: { fontSize: "14px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "2px", color: T.accent, marginBottom: "16px" },
+  rbtn: { width: "28px", height: "28px", borderRadius: "50%", border: '1px solid '+T.border, background: "rgba(0,0,0,0.3)", color: T.text, fontSize: "16px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", lineHeight: 1 },
+};
+function btn(c=T.accent,o=false){return{background:o?"transparent":c,color:o?c:(c===T.gold?"#000":"#fff"),border:o?'1.5px solid '+c:"none",borderRadius:"8px",padding:"10px 20px",fontSize:"14px",fontWeight:600,cursor:"pointer",letterSpacing:"0.5px"}}
+function sm(c=T.dim){return{background:"transparent",color:c,border:'1px solid '+c+'33',borderRadius:"6px",padding:"4px 10px",fontSize:"12px",cursor:"pointer"}}
+function badge(c){return{background:c+'22',color:c,padding:"2px 8px",borderRadius:"4px",fontSize:"12px",fontWeight:600}}
+
+function App() {
+  const init = loadClub();
+  const [clubMembers, setClubMembers] = useState(init.members);
+  const nextId = useRef(init.nextId);
+  const [newName, setNewName] = useState("");
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState("");
+
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [rounds, setRounds] = useState([]);
+  const [currentRound, setCurrentRound] = useState(null);
+  const [view, setView] = useState("club");
+
+  const [seatDealers, setSeatDealers] = useState([]);
+  const [seatResult, setSeatResult] = useState(null);
+  const [seatAnim, setSeatAnim] = useState(false);
+
+  // Club CRUD
+  const addMember = () => {
+    const n = newName.trim(); if (!n) return;
+    const id = nextId.current++;
+    const u = [...clubMembers, { id, name: n }];
+    setClubMembers(u); setNewName(""); saveClub(u, nextId.current);
+  };
+  const removeMember = (id) => {
+    const u = clubMembers.filter(m => m.id !== id);
+    setClubMembers(u); setSelectedIds(p => p.filter(x => x !== id)); saveClub(u, nextId.current);
+  };
+  const startEdit = (m) => { setEditId(m.id); setEditName(m.name); };
+  const confirmEdit = () => {
+    const n = editName.trim(); if (!n) return;
+    const u = clubMembers.map(m => m.id === editId ? { ...m, name: n } : m);
+    setClubMembers(u); setEditId(null); saveClub(u, nextId.current);
+  };
+
+  const toggleSelect = (id) => setSelectedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+
+  const startNewRound = () => {
+    const sel = clubMembers.filter(m => selectedIds.includes(m.id));
+    const rd = { id: rounds.length + 1, players: sel.map(p => ({ ...p, rebuys: 0, finalChips: "", active: true })), settled: false };
+    setCurrentRound(rd); setView("round");
+  };
+
+  const toggleActive = (pid) => setCurrentRound(r => ({
+    ...r, players: r.players.map(p => p.id === pid ? { ...p, active: !p.active, rebuys: !p.active ? p.rebuys : 0, finalChips: !p.active ? p.finalChips : "" } : p)
+  }));
+
+  const totalRoundRebuys = currentRound ? currentRound.players.filter(p => p.active).reduce((s, p) => s + p.rebuys, 0) : 0;
+
+  const doSetRebuys = (pid, delta) => {
+    setCurrentRound(r => {
+      const pl = r.players.find(p => p.id === pid); if (!pl) return r;
+      const nv = pl.rebuys + delta; if (nv < 0) return r;
+      const ct = r.players.filter(p => p.active).reduce((s, p) => s + p.rebuys, 0);
+      if (ct + delta > MAX_ROUND_REBUYS) return r;
+      return { ...r, players: r.players.map(p => p.id === pid ? { ...p, rebuys: nv } : p) };
+    });
+  };
+
+  const doSetFinalChips = (pid, val) => setCurrentRound(r => ({ ...r, players: r.players.map(p => p.id === pid ? { ...p, finalChips: val } : p) }));
+
+  const ap = currentRound ? currentRound.players.filter(p => p.active) : [];
+  const totalPool = ap.reduce((s, p) => s + (1 + p.rebuys) * BUY_IN_CHIPS, 0);
+  const totalFinal = ap.reduce((s, p) => s + (parseInt(p.finalChips) || 0), 0);
+  const balanced = totalFinal === totalPool && ap.every(p => p.finalChips !== "");
+  const diff = totalFinal - totalPool;
+
+  const settleRound = () => {
+    if (!balanced) return;
+    const settled = { ...currentRound, settled: true, players: currentRound.players.map(p => ({
+      ...p, finalChips: p.active ? parseInt(p.finalChips) : 0,
+      profit: p.active ? (parseInt(p.finalChips) - (1 + p.rebuys) * BUY_IN_CHIPS) : 0,
+      profitCash: p.active ? ((parseInt(p.finalChips) - (1 + p.rebuys) * BUY_IN_CHIPS) / CHIP_RATE) : 0,
+    }))};
+    setRounds([...rounds, settled]); setCurrentRound(null); setView("summary");
+  };
+
+  const resetAll = () => { setRounds([]); setCurrentRound(null); setView("setup"); };
+
+  // Seat Draw
+  const openSeatDraw = () => { setSeatDealers([]); setSeatResult(null); setSeatAnim(false); setView("seatDraw"); };
+  const toggleDealer = (pid) => setSeatDealers(p => p.includes(pid) ? p.filter(x => x !== pid) : p.length < 2 ? [...p, pid] : p);
+
+  const runSeatDraw = () => {
+    if (seatDealers.length !== 2) return;
+    setSeatAnim(true);
+    setTimeout(() => {
+      const rp = currentRound ? currentRound.players.filter(p => p.active) : [];
+      const dp = rp.filter(p => seatDealers.includes(p.id));
+      const nd = rp.filter(p => !seatDealers.includes(p.id));
+      const sd = shuffle(dp);
+      const rs = [1,2,3,4,6,7,8,9].slice(0, nd.length);
+      const sn = shuffle(nd);
+      const seats = [];
+      sd.forEach((p, i) => seats.push({ seat: [5,10][i], player: p, isDealer: true, isButton: false }));
+      sn.forEach((p, i) => seats.push({ seat: rs[i], player: p, isDealer: false, isButton: false }));
+      const bi = Math.floor(Math.random() * sn.length);
+      seats.forEach(s => { if (s.player.id === sn[bi].id) s.isButton = true; });
+      seats.sort((a, b) => a.seat - b.seat);
+      setSeatResult({ seats, buttonPlayer: sn[bi] }); setSeatAnim(false);
+    }, 1200);
+  };
+
+  // ═══ RENDER ═══
+  return (
+    <div style={{ minHeight: "100vh", minHeight: "100dvh", background: 'linear-gradient(160deg, '+T.bg+' 0%, #0d1a14 50%, #0a1510 100%)', color: T.text, fontFamily: "'Noto Sans TC', -apple-system, 'Segoe UI', sans-serif" }}>
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", background: 'radial-gradient(ellipse at 30% 20%, rgba(46,204,113,0.04) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(241,196,15,0.03) 0%, transparent 60%)' }} />
+
+      {/* Top bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", paddingTop: "max(14px, env(safe-area-inset-top))", borderBottom: '1px solid '+T.border, background: "rgba(10,15,13,0.85)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "17px", fontWeight: 700, letterSpacing: "1px" }}>
+          <span style={{ fontSize: "22px" }}>♠</span><span>德州撲克結算器</span>
+        </div>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {rounds.length > 0 && <span style={badge(T.accent)}>已完成 {rounds.length} 局</span>}
+          {view !== "club" && <button style={sm(T.dim)} onClick={() => setView("club")}>👥 成員</button>}
+          {(view === "round" || view === "seatDraw") && <button style={sm(T.dim)} onClick={() => setView("setup")}>⚙ 設定</button>}
+          {rounds.length > 0 && view !== "summary" && <button style={sm(T.gold)} onClick={() => { setCurrentRound(null); setView("summary"); }}>📊 總結</button>}
+        </div>
+      </div>
+
+      <div style={{ maxWidth: "720px", margin: "0 auto", padding: "20px 16px 100px" }}>
+
+        {/* ═══ CLUB ═══ */}
+        {view === "club" && (<>
+          <div style={{ marginBottom: "24px" }}>
+            <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>👥 俱樂部成員</h2>
+            <p style={{ color: T.dim, fontSize: "13px" }}>管理常駐玩家名單，資料會自動儲存在此瀏覽器</p>
+          </div>
+          <div style={S.card}>
+            <div style={S.sec}>新增成員</div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input style={S.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="輸入玩家名稱" onKeyDown={e => e.key === "Enter" && addMember()} />
+              <button style={{ ...btn(T.accent), whiteSpace: "nowrap", padding: "8px 16px" }} onClick={addMember}>+ 新增</button>
+            </div>
+          </div>
+          {clubMembers.length > 0 && (
+            <div style={S.card}>
+              <div style={S.sec}>成員列表（{clubMembers.length}人）</div>
+              {clubMembers.map((m, i) => (
+                <div key={m.id} style={S.row}>
+                  <span style={{ color: T.dim, fontSize: "12px", width: "20px", textAlign: "center" }}>{i + 1}</span>
+                  {editId === m.id ? (<>
+                    <input style={{ ...S.input, flex: 1 }} value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmEdit()} autoFocus />
+                    <button style={sm(T.accent)} onClick={confirmEdit}>✓</button>
+                    <button style={sm(T.dim)} onClick={() => setEditId(null)}>✕</button>
+                  </>) : (<>
+                    <span style={{ fontWeight: 600, flex: 1 }}>{m.name}</span>
+                    <button style={sm(T.dim)} onClick={() => startEdit(m)}>✎</button>
+                    <button style={sm(T.red)} onClick={() => removeMember(m.id)}>✕</button>
+                  </>)}
+                </div>
+              ))}
+            </div>
+          )}
+          {clubMembers.length >= 2 && (
+            <button style={{ ...btn(T.accent), width: "100%", padding: "14px", fontSize: "16px" }} onClick={() => setView("setup")}>♠ 進入牌局設定</button>
+          )}
+          {clubMembers.length > 0 && clubMembers.length < 2 && (
+            <p style={{ color: T.dim, textAlign: "center", fontSize: "13px" }}>至少需要 2 位成員才能開始</p>
+          )}
+        </>)}
+
+        {/* ═══ SETUP ═══ */}
+        {view === "setup" && (<>
+          <div style={{ marginBottom: "24px" }}>
+            <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>牌局設定</h2>
+            <p style={{ color: T.dim, fontSize: "13px" }}>買入 {formatCash(BUY_IN_CASH)} / {formatChips(BUY_IN_CHIPS)} 籌碼 ・ 全局共可加買 {MAX_ROUND_REBUYS} 次</p>
+          </div>
+          <div style={S.card}>
+            <div style={S.sec}>勾選參加的玩家（{selectedIds.length}人）</div>
+            {clubMembers.map(m => {
+              const ck = selectedIds.includes(m.id);
+              return (
+                <div key={m.id} onClick={() => toggleSelect(m.id)} style={{ ...S.row, cursor: "pointer", border: ck ? '2px solid '+T.accent : "2px solid transparent", background: ck ? "rgba(46,204,113,0.1)" : T.cardAlt }}>
+                  <span style={{ width: "24px", height: "24px", borderRadius: "6px", border: '2px solid '+(ck ? T.accent : T.border), background: ck ? T.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", color: "#fff", flexShrink: 0 }}>{ck && "✓"}</span>
+                  <span style={{ fontWeight: 600, flex: 1 }}>{m.name}</span>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            style={{ ...btn(selectedIds.length >= 2 ? T.accent : T.dim), width: "100%", padding: "14px", fontSize: "16px", opacity: selectedIds.length >= 2 ? 1 : 0.5, cursor: selectedIds.length >= 2 ? "pointer" : "not-allowed" }}
+            onClick={startNewRound} disabled={selectedIds.length < 2}
+          >♠ 開始第 {rounds.length + 1} 局（{selectedIds.length} 人）</button>
+          {rounds.length > 0 && <button style={{ ...btn(T.red, true), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={resetAll}>重置所有紀錄</button>}
+        </>)}
+
+        {/* ═══ ROUND ═══ */}
+        {view === "round" && currentRound && (<>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <div>
+              <h2 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>第 {currentRound.id} 局</h2>
+              <p style={{ color: T.dim, fontSize: "13px", margin: "4px 0 0" }}>{ap.length} 人參加 ・ 已加買 {totalRoundRebuys}/{MAX_ROUND_REBUYS} 次</p>
+            </div>
+            <button style={sm(T.dim)} onClick={() => { setCurrentRound(null); setView("setup"); }}>取消此局</button>
+          </div>
+
+          <button style={{ ...btn(T.purple, true), width: "100%", padding: "10px", marginBottom: "16px", fontSize: "14px" }} onClick={openSeatDraw}>🎲 抽座位</button>
+
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: "10px", marginBottom: "16px",
+            border: '1px solid '+(balanced ? T.accent+'44' : diff === 0 ? T.gold+'44' : T.red+'44'),
+            background: balanced ? T.accent+'11' : diff === 0 ? T.gold+'11' : T.red+'11',
+          }}>
+            <div><div style={{ fontSize: "11px", color: T.dim, marginBottom: "2px" }}>獎池籌碼</div><div style={{ fontSize: "17px", fontWeight: 700, color: T.gold }}>{formatChips(totalPool)}</div></div>
+            <div style={{ textAlign: "center" }}><div style={{ fontSize: "11px", color: T.dim, marginBottom: "2px" }}>結算籌碼</div><div style={{ fontSize: "17px", fontWeight: 700 }}>{formatChips(totalFinal)}</div></div>
+            <div style={{ textAlign: "right" }}><div style={{ fontSize: "11px", color: T.dim, marginBottom: "2px" }}>差額</div><div style={{ fontSize: "17px", fontWeight: 700, color: balanced ? T.accent : T.red }}>{balanced ? "✓ 平衡" : (diff > 0 ? '+'+formatChips(diff) : formatChips(diff))}</div></div>
+          </div>
+
+          <div style={S.card}>
+            <div style={S.sec}>各玩家結算</div>
+            {currentRound.players.map(p => (
+              <div key={p.id} style={{ ...S.row, opacity: p.active ? 1 : 0.4, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", marginBottom: p.active ? "8px" : 0 }}>
+                  <button style={{ ...sm(p.active ? T.accent : T.dim), fontSize: "10px", padding: "2px 6px", minWidth: "36px" }} onClick={() => toggleActive(p.id)}>{p.active ? "IN" : "OUT"}</button>
+                  <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
+                  {p.active && <span style={{ fontSize: "12px", color: T.dim }}>投入 {formatChips((1 + p.rebuys) * BUY_IN_CHIPS)}</span>}
+                </div>
+                {p.active && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", paddingLeft: "44px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "12px", color: T.dim, whiteSpace: "nowrap" }}>加買</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <button style={S.rbtn} onClick={() => doSetRebuys(p.id, -1)}>−</button>
+                        <span style={{ width: "18px", textAlign: "center", fontWeight: 600 }}>{p.rebuys}</span>
+                        <button style={S.rbtn} onClick={() => doSetRebuys(p.id, 1)}>+</button>
+                      </div>
+                    </div>
+                    <div style={{ flex: 1 }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "12px", color: T.dim, whiteSpace: "nowrap" }}>結算籌碼</span>
+                      <input type="text" inputMode="numeric" pattern="[0-9]*" style={S.chipInput} value={p.finalChips} onChange={e => { if (/^\d*$/.test(e.target.value)) doSetFinalChips(p.id, e.target.value); }} placeholder="0" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button
+            style={{ ...btn(balanced ? T.accent : T.dim), width: "100%", padding: "14px", fontSize: "16px", opacity: balanced ? 1 : 0.5, cursor: balanced ? "pointer" : "not-allowed" }}
+            onClick={settleRound} disabled={!balanced}
+          >{balanced ? "✓ 確認結算" : "籌碼尚未平衡"}</button>
+        </>)}
+
+        {/* ═══ SEAT DRAW ═══ */}
+        {view === "seatDraw" && (<>
+          <div style={{ marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>🎲 抽位</h2>
+              <p style={{ color: T.dim, fontSize: "13px" }}>選 2 位發牌員 → 抽 5 & 10 號 → 其餘抽 1-4 & 6-9 → 隨機 Button</p>
+            </div>
+            <button style={sm(T.dim)} onClick={() => setView("round")}>← 返回</button>
+          </div>
+
+          {!seatResult && (
+            <div style={S.card}>
+              <div style={S.sec}>選擇發牌員（{seatDealers.length}/2）</div>
+              {(currentRound ? currentRound.players.filter(p => p.active) : []).map(p => {
+                const sel = seatDealers.includes(p.id);
+                return (
+                  <div key={p.id} onClick={() => toggleDealer(p.id)} style={{ ...S.row, cursor: "pointer", border: sel ? '2px solid '+T.purple : "2px solid transparent", background: sel ? "rgba(155,89,182,0.15)" : T.cardAlt }}>
+                    <span style={{ width: "24px", height: "24px", borderRadius: "50%", border: '2px solid '+(sel ? T.purple : T.border), background: sel ? T.purple : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", color: "#fff", flexShrink: 0 }}>{sel && "✓"}</span>
+                    <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
+                    {sel && <span style={{ fontSize: "12px", color: T.purple, fontWeight: 600 }}>發牌員</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {!seatResult && (
+            <button style={{ ...btn(seatDealers.length === 2 ? T.purple : T.dim), width: "100%", padding: "14px", fontSize: "16px", opacity: seatDealers.length === 2 ? 1 : 0.5, cursor: seatDealers.length === 2 ? "pointer" : "not-allowed" }} onClick={runSeatDraw} disabled={seatDealers.length !== 2 || seatAnim}>
+              {seatAnim ? "🎲 抽位中..." : "開始抽位"}
+            </button>
+          )}
+          {seatAnim && (
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <div style={{ fontSize: "48px", animation: "spin 0.6s linear infinite" }}>🎲</div>
+              <p style={{ color: T.dim, marginTop: "12px" }}>正在抽位...</p>
+            </div>
+          )}
+
+          {seatResult && !seatAnim && (<>
+            <div style={S.card}>
+              <div style={S.sec}>座位結果</div>
+              <div style={{ position: "relative", width: "100%", maxWidth: "500px", margin: "0 auto", paddingBottom: "45%", minHeight: "220px" }}>
+                <div style={{ position: "absolute", top: "20%", left: "6%", right: "6%", bottom: "20%", borderRadius: "999px", background: "#1a3a20", border: "5px solid #3a3a38", boxShadow: "0 0 0 8px #2a2a28, 0 8px 32px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.4)" }} />
+                <div style={{ position: "absolute", top: "26%", left: "9%", right: "9%", bottom: "26%", borderRadius: "999px", border: "1.5px solid rgba(255,255,255,0.07)" }} />
+                {seatResult.seats.map((entry) => {
+                  const seatOrder = entry.seat >= 5 ? entry.seat - 5 : entry.seat + 5;
+                  const angle = (seatOrder / 10) * Math.PI * 2 - Math.PI / 2;
+                  const cx = 50 + 45 * Math.cos(angle);
+                  const cy = 50 + 38 * Math.sin(angle);
+                  return (
+                    <div key={entry.seat} style={{ position: "absolute", left: cx+'%', top: cy+'%', transform: "translate(-50%, -50%)", textAlign: "center", zIndex: 2 }}>
+                      <div style={{ width: "50px", height: "50px", borderRadius: "50%", background: entry.isDealer ? "rgba(155,89,182,0.3)" : entry.isButton ? "rgba(241,196,15,0.3)" : "rgba(20,30,25,0.9)", border: '2px solid '+(entry.isDealer ? T.purple : entry.isButton ? T.gold : T.border), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxShadow: entry.isButton ? '0 0 12px '+T.gold+'44' : "0 2px 8px rgba(0,0,0,0.3)" }}>
+                        <span style={{ fontSize: "9px", color: T.dim, lineHeight: 1 }}>{entry.seat}號</span>
+                        <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.3, color: entry.isDealer ? T.purple : entry.isButton ? T.gold : T.text, maxWidth: "42px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.player.name}</span>
+                      </div>
+                      {(entry.isDealer || entry.isButton) && <span style={{ fontSize: "8px", fontWeight: 700, display: "block", marginTop: "1px", color: entry.isDealer ? T.purple : T.gold }}>{entry.isDealer ? "發牌員" : "🔘 BTN"}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={S.card}>
+              <div style={S.sec}>座位表</div>
+              {seatResult.seats.map(e => (
+                <div key={e.seat} style={{ ...S.row, background: e.isButton ? T.gold+'15' : e.isDealer ? "rgba(155,89,182,0.1)" : T.cardAlt, border: e.isButton ? '1px solid '+T.gold+'44' : "1px solid transparent" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: e.isDealer ? T.purple : "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, color: "#fff", flexShrink: 0 }}>{e.seat}</span>
+                  <span style={{ fontWeight: 600, flex: 1 }}>{e.player.name}</span>
+                  {e.isDealer && <span style={{ ...badge(T.purple), fontSize: "11px" }}>發牌員</span>}
+                  {e.isButton && <span style={{ ...badge(T.gold), fontSize: "11px" }}>🔘 Button</span>}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button style={{ ...btn(T.purple, true), flex: 1, padding: "12px" }} onClick={() => { setSeatResult(null); setSeatDealers([]); }}>重新抽位</button>
+              <button style={{ ...btn(T.accent), flex: 1, padding: "12px" }} onClick={() => setView("round")}>返回牌局</button>
+            </div>
+          </>)}
+        </>)}
+
+        {/* ═══ SUMMARY ═══ */}
+        {view === "summary" && (<>
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>今日總結</h2>
+            <p style={{ color: T.dim, fontSize: "13px" }}>共 {rounds.length} 局</p>
+          </div>
+
+          {rounds.length > 0 && (() => {
+            const pm = {};
+            rounds.forEach(r => r.players.forEach(p => { if (p.active && !pm[p.id]) pm[p.id] = { id: p.id, name: p.name }; }));
+            const pt = Object.values(pm).map(pl => ({ ...pl, total: rounds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0) }));
+            const sorted = [...pt].sort((a, b) => b.total - a.total);
+            const rm = {}; sorted.forEach((p, i) => { rm[p.id] = i + 1; });
+            const cb = '1px solid '+T.border+'55', hBg = "#0d1a14", cp = "9px 10px";
+
+            return (
+              <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "400px" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: cp, textAlign: "center", fontSize: "11px", color: T.dim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 3, width: "32px" }}>#</th>
+                        <th style={{ padding: cp, textAlign: "left", fontSize: "11px", color: T.dim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: "32px", zIndex: 3 }}>玩家</th>
+                        {rounds.map(r => <th key={r.id} style={{ padding: cp, textAlign: "right", fontSize: "11px", color: T.dim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, whiteSpace: "nowrap" }}>第{r.id}次</th>)}
+                        <th style={{ padding: cp, textAlign: "right", fontSize: "11px", color: T.gold, fontWeight: 700, background: hBg, borderBottom: cb, whiteSpace: "nowrap" }}>小計</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map((pl, pi) => {
+                        const rank = rm[pl.id], f = rank === 1 && pl.total > 0, bg = pi % 2 === 0 ? T.card : T.cardAlt;
+                        return (
+                          <tr key={pl.id}>
+                            <td style={{ padding: cp, textAlign: "center", fontWeight: 600, color: f ? T.gold : T.dim, fontSize: "12px", borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg }}>{f ? "👑" : rank}</td>
+                            <td style={{ padding: cp, fontWeight: 700, whiteSpace: "nowrap", borderBottom: cb, borderRight: cb, position: "sticky", left: "32px", zIndex: 2, background: bg }}>{pl.name}</td>
+                            {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? T.accent : v < 0 ? T.red : T.dim }}>{v !== null ? v : ""}</td>; })}
+                            <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", fontSize: "14px", borderBottom: cb, color: pl.total > 0 ? T.accent : pl.total < 0 ? T.red : T.dim }}>{pl.total}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr>
+                        <td style={{ padding: cp, position: "sticky", left: 0, zIndex: 2, background: hBg, borderRight: cb }} />
+                        <td style={{ padding: cp, fontWeight: 600, color: T.dim, fontSize: "11px", position: "sticky", left: "32px", zIndex: 2, background: hBg, borderRight: cb, letterSpacing: "1px" }}>驗證</td>
+                        {rounds.map(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", borderRight: cb, color: t === 0 ? T.accent : T.red }}>{t}</td>; })}
+                        <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: T.dim }}>{sorted.reduce((a, p) => a + p.total, 0)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+            <button style={{ ...btn(T.accent), flex: 1, padding: "14px", fontSize: "15px" }} onClick={() => setView("setup")}>♠ 設定第 {rounds.length + 1} 局</button>
+          </div>
+          <button style={{ ...btn(T.red, true), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={resetAll}>重置所有紀錄</button>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
