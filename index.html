@@ -117,6 +117,12 @@ function App() {
     ...r, players: r.players.map(p => p.id === pid ? { ...p, active: !p.active, rebuys: !p.active ? p.rebuys : 0, finalChips: !p.active ? p.finalChips : "" } : p)
   }));
 
+  const addPlayerMidRound = (member) => {
+    setCurrentRound(r => ({
+      ...r, players: [...r.players, { ...member, rebuys: 0, finalChips: "", active: true }]
+    }));
+  };
+
   const totalRoundRebuys = currentRound ? currentRound.players.filter(p => p.active).reduce((s, p) => s + p.rebuys, 0) : 0;
 
   const setRebuys = (pid, delta) => {
@@ -321,6 +327,26 @@ function App() {
                 )}
               </div>
             ))}
+            {(() => {
+              const avail = clubMembers.filter(m => !currentRound.players.some(p => p.id === m.id));
+              if (avail.length === 0) return null;
+              return (
+                <details style={{ marginTop: "8px" }}>
+                  <summary style={{ cursor: "pointer", fontSize: "13px", color: theme.accent, fontWeight: 600, padding: "8px 0", listStyle: "none", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "16px" }}>+</span> 中途加入玩家
+                  </summary>
+                  <div style={{ paddingTop: "6px" }}>
+                    {avail.map(m => (
+                      <div key={m.id} style={{ ...S.row, cursor: "pointer", border: "1px dashed " + theme.accent + "44" }} onClick={() => addPlayerMidRound(m)}>
+                        <span style={{ fontSize: "16px", color: theme.accent }}>+</span>
+                        <span style={{ fontWeight: 600, flex: 1 }}>{m.name}</span>
+                        <span style={{ fontSize: "11px", color: theme.textDim }}>點擊加入</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              );
+            })()}
           </div>
 
           <button
