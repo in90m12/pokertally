@@ -177,10 +177,9 @@ function App() {
       const seats = [];
       sd.forEach((p, i) => seats.push({ seat: [5,10][i], player: p, isDealer: true, isButton: false }));
       sn.forEach((p, i) => seats.push({ seat: rs[i], player: p, isDealer: false, isButton: false }));
-      const bi = Math.floor(Math.random() * sn.length);
-      seats.forEach(s => { if (s.player.id === sn[bi].id) s.isButton = true; });
+      const bi = Math.floor(Math.random() * seats.length);seats[bi].isButton = true;
       seats.sort((a, b) => a.seat - b.seat);
-      setSeatResult({ seats, buttonPlayer: sn[bi] }); setSeatAnim(false);
+      setSeatResult({ seats }); setSeatAnim(false);
     }, 1200);
   };
 
