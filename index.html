@@ -108,6 +108,7 @@ function App() {
   const toggleSelect = (id) => setSelectedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
 
   const startNewRound = () => {
+    if (currentRound && !confirm("目前有進行中的牌局，確定要放棄並開始新局嗎？")) return;
     const sel = clubMembers.filter(m => selectedIds.includes(m.id));
     const rd = { id: rounds.length + 1, players: sel.map(p => ({ ...p, rebuys: 0, finalChips: "", active: true })), settled: false };
     setCurrentRound(rd); setView("round");
@@ -202,7 +203,8 @@ function App() {
           {rounds.length > 0 && <span style={S.badge(theme.accent)}>已完成 {rounds.length} 局</span>}
           {view !== "club" && <button style={S.sm(theme.textDim)} onClick={() => setView("club")}>👥 成員</button>}
           {(view === "round" || view === "seatDraw") && <button style={S.sm(theme.textDim)} onClick={() => setView("setup")}>⚙ 設定</button>}
-          {rounds.length > 0 && view !== "summary" && <button style={S.sm(theme.gold)} onClick={() => { setCurrentRound(null); setView("summary"); }}>📊 總結</button>}
+          {rounds.length > 0 && view !== "summary" && <button style={S.sm(theme.gold)} onClick={() => setView("summary")}>📊 總結</button>}
+          {currentRound && view !== "round" && view !== "seatDraw" && <button style={S.sm(theme.accent)} onClick={() => setView("round")}>🃏 返回牌局</button>}
         </div>
       </div>
 
