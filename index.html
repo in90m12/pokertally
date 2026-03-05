@@ -495,15 +495,43 @@ function App() {
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>共 {rounds.length} 局</p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
-            <div>
-              <div style={{ fontSize: "13px", fontWeight: 600 }}>🏠 場地費</div>
-              <div style={{ fontSize: "11px", color: theme.textDim }}>每人每局 $10</div>
-            </div>
-            <div onClick={() => setVenueFee(v => !v)} style={{ width: "44px", height: "24px", borderRadius: "12px", background: venueFee ? theme.accent : theme.border, position: "relative", cursor: "pointer", flexShrink: 0 }}>
-              <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: venueFee ? "22px" : "2px", transition: "left 0.2s" }} />
-            </div>
-          </div>
+          {/* Fee & Piggy Pills */}
+          {rounds.length > 0 && (() => {
+            const PIGGY_PER_ROUND = 5;
+            const totalSlots = rounds.reduce((s, r) => s + r.players.filter(p => p.active).length, 0);
+            const thisAmount = totalSlots * PIGGY_PER_ROUND;
+            const handlePiggyToggle = () => {
+              if (!piggyBank && !piggyAdded) {
+                addPiggyRecord(thisAmount, rounds.length + "\u5c40 " + totalSlots + "\u4eba\u6b21");
+                setPiggyAdded(true);
+              }
+              setPiggyBank(v => !v);
+            };
+            return (<>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+                <div onClick={() => setVenueFee(v => !v)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "10px", background: venueFee ? theme.accent + "08" : theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "14px" }}>🏠</span>
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: venueFee ? theme.text : theme.textDim }}>場地費 $10</span>
+                  </div>
+                  {venueFee && <span style={{ fontSize: "14px", color: theme.accent }}>✓</span>}
+                </div>
+                <div onClick={handlePiggyToggle} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "10px", background: piggyBank ? "#e91e6308" : theme.card, border: `1px solid ${piggyBank ? "#e91e6344" : theme.border}`, cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "14px" }}>🏦</span>
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: piggyBank ? theme.text : theme.textDim }}>撲滿 $5</span>
+                  </div>
+                  {piggyBank && <span style={{ fontSize: "14px", color: "#e91e63" }}>✓</span>}
+                </div>
+              </div>
+              {piggyBank && (
+                <div style={{ marginTop: "-8px", marginBottom: "14px", padding: "6px 14px", background: "#e91e6311", border: "1px solid #e91e6322", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#e91e63" }}>{piggyAdded ? "\u2705 \u5df2\u5b58\u5165" : ""} {totalSlots} \u4eba\u6b21 × $5</span>
+                  <span style={{ fontSize: "14px", fontWeight: 700, color: "#e91e63" }}>${thisAmount}</span>
+                </div>
+              )}
+            </>);
+          })()}
 
           {rounds.length > 0 && (() => {
             const VENUE_FEE_PER_ROUND = 10;
@@ -581,39 +609,6 @@ function App() {
                 );
               })()}
             </>);
-          })()}
-
-          {/* Piggy Bank Toggle */}
-          {rounds.length > 0 && (() => {
-            const PIGGY_PER_ROUND = 5;
-            const totalSlots = rounds.reduce((s, r) => s + r.players.filter(p => p.active).length, 0);
-            const thisAmount = totalSlots * PIGGY_PER_ROUND;
-            const handlePiggyToggle = () => {
-              if (!piggyBank && !piggyAdded) {
-                addPiggyRecord(thisAmount, rounds.length + "\u5c40 " + totalSlots + "\u4eba\u6b21");
-                setPiggyAdded(true);
-              }
-              setPiggyBank(v => !v);
-            };
-            return (
-              <div style={{ marginTop: "14px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${piggyBank ? "#e91e63" + "44" : theme.border}`, borderRadius: "10px" }}>
-                  <div>
-                    <div style={{ fontSize: "13px", fontWeight: 600 }}>🏦 撲滿基金</div>
-                    <div style={{ fontSize: "11px", color: theme.textDim }}>每人每局 $5，存入比賽基金</div>
-                  </div>
-                  <div onClick={handlePiggyToggle} style={{ width: "44px", height: "24px", borderRadius: "12px", background: piggyBank ? "#e91e63" : theme.border, position: "relative", cursor: "pointer", flexShrink: 0 }}>
-                    <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: piggyBank ? "22px" : "2px", transition: "left 0.2s" }} />
-                  </div>
-                </div>
-                {piggyBank && (
-                  <div style={{ marginTop: "6px", padding: "8px 14px", background: "#e91e6311", border: "1px solid #e91e6322", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "11px", color: "#e91e63" }}>{piggyAdded ? "\u2705 \u5df2\u5b58\u5165" : ""} {totalSlots} \u4eba\u6b21 × $5</span>
-                    <span style={{ fontSize: "14px", fontWeight: 700, color: "#e91e63" }}>${thisAmount}</span>
-                  </div>
-                )}
-              </div>
-            );
           })()}
 
           <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
