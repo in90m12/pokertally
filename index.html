@@ -73,6 +73,7 @@ function App() {
   const [seatDealers, setSeatDealers] = useState([]);
   const [seatResult, setSeatResult] = useState(null);
   const [seatAnim, setSeatAnim] = useState(false);
+  const [venueFee, setVenueFee] = useState(false);
 
   useEffect(() => {
     try {
@@ -422,19 +423,21 @@ function App() {
                     <div key={entry.seat} style={{ position: "absolute", left: `${cx}%`, top: `${cy}%`, transform: "translate(-50%, -50%)", textAlign: "center", zIndex: 2 }}>
                       <div style={{
                         width: "52px", height: "52px", borderRadius: "50%",
-                        background: entry.isDealer ? "rgba(155,89,182,0.3)" : entry.isButton ? "rgba(241,196,15,0.3)" : "rgba(20,30,25,0.9)",
-                        border: `2px solid ${entry.isDealer ? theme.purple : entry.isButton ? theme.gold : theme.border}`,
+                        background: entry.isDealer && entry.isButton ? "rgba(155,89,182,0.25)" : entry.isDealer ? "rgba(155,89,182,0.3)" : entry.isButton ? "rgba(241,196,15,0.3)" : "rgba(20,30,25,0.9)",
+                        border: `2.5px solid ${entry.isDealer ? theme.purple : entry.isButton ? theme.gold : theme.border}`,
+                        outline: entry.isDealer && entry.isButton ? `2.5px solid ${theme.gold}` : "none",
+                        outlineOffset: "2px",
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                         boxShadow: entry.isButton ? `0 0 12px ${theme.gold}44` : "0 2px 8px rgba(0,0,0,0.3)",
                       }}>
                         <span style={{ fontSize: "9px", color: theme.textDim, lineHeight: 1 }}>{entry.seat}號</span>
-                        <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.3, color: entry.isDealer ? theme.purple : entry.isButton ? theme.gold : theme.text, maxWidth: "44px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span style={{ fontSize: "10px", fontWeight: 700, lineHeight: 1.3, color: entry.isDealer && entry.isButton ? theme.gold : entry.isDealer ? theme.purple : entry.isButton ? theme.gold : theme.text, maxWidth: "44px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {entry.player.name}
                         </span>
                       </div>
                       {(entry.isDealer || entry.isButton) && (
-                        <span style={{ fontSize: "8px", fontWeight: 700, display: "block", marginTop: "1px", color: entry.isDealer ? theme.purple : theme.gold, letterSpacing: "0.5px" }}>
-                          {entry.isDealer ? "發牌員" : "🔘 BTN"}
+                        <span style={{ fontSize: "8px", fontWeight: 700, display: "block", marginTop: "2px", letterSpacing: "0.5px", color: entry.isDealer && entry.isButton ? theme.gold : entry.isDealer ? theme.purple : theme.gold }}>
+                          {entry.isDealer && entry.isButton ? "發牌+BTN" : entry.isDealer ? "發牌員" : "🔘 BTN"}
                         </span>
                       )}
                     </div>
@@ -446,8 +449,8 @@ function App() {
             <div style={S.card}>
               <div style={S.section}>座位表</div>
               {seatResult.seats.map(e => (
-                <div key={e.seat} style={{ ...S.row, background: e.isButton ? `${theme.gold}15` : e.isDealer ? "rgba(155,89,182,0.1)" : theme.cardAlt, border: e.isButton ? `1px solid ${theme.gold}44` : "1px solid transparent" }}>
-                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: e.isDealer ? theme.purple : "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, color: "#fff", flexShrink: 0 }}>{e.seat}</span>
+                <div key={e.seat} style={{ ...S.row, background: e.isDealer && e.isButton ? "rgba(155,89,182,0.15)" : e.isButton ? `${theme.gold}15` : e.isDealer ? "rgba(155,89,182,0.1)" : theme.cardAlt, border: e.isDealer && e.isButton ? `1px solid ${theme.gold}44` : e.isButton ? `1px solid ${theme.gold}44` : "1px solid transparent" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: e.isDealer ? theme.purple : "rgba(0,0,0,0.3)", outline: e.isDealer && e.isButton ? `2px solid ${theme.gold}` : "none", outlineOffset: "1px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, color: "#fff", flexShrink: 0 }}>{e.seat}</span>
                   <span style={{ fontWeight: 600, flex: 1 }}>{e.player.name}</span>
                   {e.isDealer && <span style={{ ...S.badge(theme.purple), fontSize: "11px" }}>發牌員</span>}
                   {e.isButton && <span style={{ ...S.badge(theme.gold), fontSize: "11px" }}>🔘 Button</span>}
@@ -469,23 +472,39 @@ function App() {
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>共 {rounds.length} 局</p>
           </div>
 
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 600 }}>🏠 場地費</div>
+              <div style={{ fontSize: "11px", color: theme.textDim }}>每人每局 $10</div>
+            </div>
+            <div onClick={() => setVenueFee(v => !v)} style={{ width: "44px", height: "24px", borderRadius: "12px", background: venueFee ? theme.accent : theme.border, position: "relative", cursor: "pointer", flexShrink: 0 }}>
+              <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: venueFee ? "22px" : "2px", transition: "left 0.2s" }} />
+            </div>
+          </div>
+
           {rounds.length > 0 && (() => {
+            const VENUE_FEE_PER_ROUND = 10;
             const pm = {};
             rounds.forEach(r => r.players.forEach(p => { if (p.active && !pm[p.id]) pm[p.id] = { id: p.id, name: p.name }; }));
-            const pt = Object.values(pm).map(pl => ({ ...pl, total: rounds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0) }));
+            const pt = Object.values(pm).map(pl => {
+              const roundProfit = rounds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0);
+              const roundsPlayed = rounds.filter(r => r.players.some(p => p.id === pl.id && p.active)).length;
+              const fee = venueFee ? roundsPlayed * VENUE_FEE_PER_ROUND : 0;
+              return { ...pl, rawTotal: roundProfit, total: roundProfit - fee, fee, roundsPlayed };
+            });
             const sorted = [...pt].sort((a, b) => b.total - a.total);
             const rm = {}; sorted.forEach((p, i) => { rm[p.id] = i + 1; });
-            const cb = `1px solid ${theme.border}55`, hBg = "#0d1a14", cp = "5px 4px";
+            const totalFee = sorted.reduce((a, p) => a + p.fee, 0);
+            const cb = `1px solid ${theme.border}55`, hBg = "#0d1a14", cp = "4px 5px";
 
-            return (
+            return (<>
               <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
                 <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
                     <thead>
                       <tr>
-                        <th style={{ padding: cp, textAlign: "center", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 3, width: "22px" }}>#</th>
-                        <th style={{ padding: cp, textAlign: "left", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: "22px", zIndex: 3, maxWidth: "52px" }}>玩家</th>
-                        {rounds.map(r => <th key={r.id} style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, whiteSpace: "nowrap" }}>R{r.id}</th>)}
+                        <th style={{ padding: cp, paddingLeft: "6px", textAlign: "left", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 3 }}>玩家</th>
+                        {rounds.map(r => <th key={r.id} style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, whiteSpace: "nowrap" }}>{r.id}</th>)}
                         <th style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.gold, fontWeight: 700, background: hBg, borderBottom: cb, whiteSpace: "nowrap" }}>小計</th>
                       </tr>
                     </thead>
@@ -494,24 +513,48 @@ function App() {
                         const rank = rm[pl.id], f = rank === 1 && pl.total > 0, bg = pi % 2 === 0 ? theme.card : theme.cardAlt;
                         return (
                           <tr key={pl.id}>
-                            <td style={{ padding: cp, textAlign: "center", fontWeight: 600, color: f ? theme.gold : theme.textDim, fontSize: "11px", borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg }}>{f ? "👑" : rank}</td>
-                            <td style={{ padding: cp, fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: "22px", zIndex: 2, background: bg, maxWidth: "52px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pl.name}</td>
+                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, maxWidth: "60px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f ? "👑 " : ""}{pl.name}</td>
                             {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? theme.accent : v < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{v !== null ? v : ""}</td>; })}
-                            <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", fontSize: "13px", borderBottom: cb, color: pl.total > 0 ? theme.accent : pl.total < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{pl.total}</td>
+                            <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", borderBottom: cb, color: pl.total > 0 ? theme.accent : pl.total < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{pl.total}</td>
                           </tr>
                         );
                       })}
                       <tr>
-                        <td style={{ padding: cp, position: "sticky", left: 0, zIndex: 2, background: hBg, borderRight: cb }} />
-                        <td style={{ padding: cp, fontWeight: 600, color: theme.textDim, fontSize: "10px", position: "sticky", left: "22px", zIndex: 2, background: hBg, borderRight: cb, letterSpacing: "1px" }}>驗證</td>
+                        <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 600, color: theme.textDim, fontSize: "10px", position: "sticky", left: 0, zIndex: 2, background: hBg, borderRight: cb }}>驗算</td>
                         {rounds.map(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", borderRight: cb, color: t === 0 ? theme.accent : theme.red }}>{t}</td>; })}
-                        <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: theme.textDim }}>{sorted.reduce((a, p) => a + p.total, 0)}</td>
+                        <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: theme.textDim }}>{venueFee ? -totalFee : sorted.reduce((a, p) => a + p.total, 0)}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
-            );
+
+              {venueFee && (() => {
+                const grouped = {};
+                sorted.forEach(p => { const k = p.roundsPlayed; if (!grouped[k]) grouped[k] = []; grouped[k].push(p); });
+                const keys = Object.keys(grouped).sort((a, b) => b - a);
+                return (
+                  <div style={{ marginTop: "12px", padding: "12px 14px", background: "#f39c1211", border: "1px solid #f39c1222", borderRadius: "10px" }}>
+                    <div style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600, marginBottom: "8px" }}>🏠 場地費明細</div>
+                    {keys.map(k => (
+                      <div key={k} style={{ marginBottom: "6px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
+                          <span style={{ color: theme.text }}>{grouped[k].map(p => p.name).join("、")}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
+                          <span style={{ color: theme.textDim }}>× {k} 局</span>
+                          <span style={{ color: "#f39c12" }}>-${k * VENUE_FEE_PER_ROUND} / 人</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #f39c1233" }}>
+                      <span style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600 }}>場主收入</span>
+                      <span style={{ fontSize: "16px", fontWeight: 700, color: "#f39c12" }}>${totalFee}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>);
           })()}
 
           <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
