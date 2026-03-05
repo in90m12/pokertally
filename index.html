@@ -175,7 +175,7 @@ function App() {
     setRounds([...rounds, settled]); setCurrentRound(null); setView("summary");
   };
 
-  const resetAll = () => { setRounds([]); setCurrentRound(null); setView("setup"); };
+  const resetAll = () => { setRounds([]); setCurrentRound(null); setPiggyAdded(false); setPiggyBank(false); setVenueFee(false); setView("setup"); };
 
   // ── Seat Draw ──
   const openSeatDraw = () => { setSeatDealers([]); setSeatResult(null); setSeatAnim(false); setView("seatDraw"); };
@@ -502,7 +502,7 @@ function App() {
             const thisAmount = totalSlots * PIGGY_PER_ROUND;
             const handlePiggyToggle = () => {
               if (!piggyBank && !piggyAdded) {
-                addPiggyRecord(thisAmount, rounds.length + "\u5c40 " + totalSlots + "\u4eba\u6b21");
+                addPiggyRecord(thisAmount, rounds.length + "局 " + totalSlots + "人次");
                 setPiggyAdded(true);
               }
               setPiggyBank(v => !v);
@@ -519,14 +519,14 @@ function App() {
                 <div onClick={handlePiggyToggle} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "10px", background: piggyBank ? "#e91e6308" : theme.card, border: `1px solid ${piggyBank ? "#e91e6344" : theme.border}`, cursor: "pointer" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <span style={{ fontSize: "14px" }}>🏦</span>
-                    <span style={{ fontSize: "11px", fontWeight: 600, color: piggyBank ? theme.text : theme.textDim }}>撲滿 $5</span>
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: piggyBank ? theme.text : theme.textDim }}>撲滿 $5 <span style={{ fontSize: "8px", opacity: 0.6 }}>(Beta)</span></span>
                   </div>
                   {piggyBank && <span style={{ fontSize: "14px", color: "#e91e63" }}>✓</span>}
                 </div>
               </div>
               {piggyBank && (
                 <div style={{ marginTop: "-8px", marginBottom: "14px", padding: "6px 14px", background: "#e91e6311", border: "1px solid #e91e6322", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "11px", color: "#e91e63" }}>{piggyAdded ? "\u2705 \u5df2\u5b58\u5165" : ""} {totalSlots} \u4eba\u6b21 × $5</span>
+                  <span style={{ fontSize: "11px", color: "#e91e63" }}>{piggyAdded ? "✅ 已存入" : ""} {totalSlots} 人次 × $5</span>
                   <span style={{ fontSize: "14px", fontWeight: 700, color: "#e91e63" }}>${thisAmount}</span>
                 </div>
               )}
