@@ -535,7 +535,7 @@ function App() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
                     <thead>
                       <tr>
-                        <th style={{ padding: cp, paddingLeft: "6px", textAlign: "left", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 3 }}>玩家</th>
+                        <th style={{ padding: cp, paddingLeft: "6px", textAlign: "left", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb }}>玩家</th>
                         {rounds.map(r => <th key={r.id} style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, whiteSpace: "nowrap" }}>{r.id}</th>)}
                         <th style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.gold, fontWeight: 700, background: hBg, borderBottom: cb, whiteSpace: "nowrap" }}>小計</th>
                       </tr>
@@ -545,14 +545,14 @@ function App() {
                         const bg = pi % 2 === 0 ? theme.card : theme.cardAlt;
                         return (
                           <tr key={pl.id}>
-                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, maxWidth: "4.5em", overflow: "hidden", whiteSpace: "nowrap" }}>{pl.name}</td>
+                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, background: bg, overflow: "hidden", whiteSpace: "nowrap" }}>{pl.name}</td>
                             {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? theme.accent : v < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{v !== null ? Math.abs(v) : ""}</td>; })}
                             <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", borderBottom: cb, color: pl.total > 0 ? theme.accent : pl.total < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{pl.total}</td>
                           </tr>
                         );
                       })}
                       <tr>
-                        <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 600, color: theme.textDim, fontSize: "10px", position: "sticky", left: 0, zIndex: 2, background: hBg, borderRight: cb }}>驗算</td>
+                        <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 600, color: theme.textDim, fontSize: "10px", background: hBg, borderRight: cb }}>驗算</td>
                         {rounds.map(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", borderRight: cb, color: t === 0 ? theme.accent : theme.red }}>{t}</td>; })}
                         <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: theme.textDim }}>{sorted.reduce((a, p) => a + p.total, 0)}</td>
                       </tr>
