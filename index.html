@@ -76,7 +76,7 @@ function App() {
   const [venueFee, setVenueFee] = useState(false);
   const [piggyBank, setPiggyBank] = useState(false);
   const [piggyRecords, setPiggyRecords] = useState([]);
-  const [piggyAdded, setPiggyAdded] = useState(false);
+  const [piggySavedRounds, setPiggySavedRounds] = useState(0);
   const [piggyManual, setPiggyManual] = useState(false);
   const [piggyManualAmt, setPiggyManualAmt] = useState("");
   const [piggyManualNote, setPiggyManualNote] = useState("");
@@ -172,10 +172,10 @@ function App() {
       profit: p.active ? (parseInt(p.finalChips) - (1 + p.rebuys) * BUY_IN_CHIPS) : 0,
       profitCash: p.active ? ((parseInt(p.finalChips) - (1 + p.rebuys) * BUY_IN_CHIPS) / CHIP_RATE) : 0,
     }))};
-    setRounds([...rounds, settled]); setCurrentRound(null); setView("summary");
+    setRounds([...rounds, settled]); setCurrentRound(null); setPiggyBank(false); setView("summary");
   };
 
-  const resetAll = () => { setRounds([]); setCurrentRound(null); setPiggyAdded(false); setPiggyBank(false); setVenueFee(false); setView("setup"); };
+  const resetAll = () => { setRounds([]); setCurrentRound(null); setPiggySavedRounds(0); setPiggyBank(false); setVenueFee(false); setView("setup"); };
 
   // ── Seat Draw ──
   const openSeatDraw = () => { setSeatDealers([]); setSeatResult(null); setSeatAnim(false); setView("seatDraw"); };
@@ -498,12 +498,14 @@ function App() {
           {/* Fee & Piggy Pills */}
           {rounds.length > 0 && (() => {
             const PIGGY_PER_ROUND = 5;
-            const totalSlots = rounds.reduce((s, r) => s + r.players.filter(p => p.active).length, 0);
-            const thisAmount = totalSlots * PIGGY_PER_ROUND;
+            const newRounds = rounds.slice(piggySavedRounds);
+            const newSlots = newRounds.reduce((s, r) => s + r.players.filter(p => p.active).length, 0);
+            const newAmount = newSlots * PIGGY_PER_ROUND;
+            const allSaved = piggySavedRounds >= rounds.length;
             const handlePiggyToggle = () => {
-              if (!piggyBank && !piggyAdded) {
-                addPiggyRecord(thisAmount, rounds.length + "局 " + totalSlots + "人次");
-                setPiggyAdded(true);
+              if (!piggyBank && !allSaved) {
+                addPiggyRecord(newAmount, newRounds.length + "局 " + newSlots + "人次");
+                setPiggySavedRounds(rounds.length);
               }
               setPiggyBank(v => !v);
             };
@@ -526,8 +528,8 @@ function App() {
               </div>
               {piggyBank && (
                 <div style={{ marginTop: "-8px", marginBottom: "14px", padding: "6px 14px", background: "#e91e6311", border: "1px solid #e91e6322", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "11px", color: "#e91e63" }}>{piggyAdded ? "✅ 已存入" : ""} {totalSlots} 人次 × $5</span>
-                  <span style={{ fontSize: "14px", fontWeight: 700, color: "#e91e63" }}>${thisAmount}</span>
+                  <span style={{ fontSize: "11px", color: "#e91e63" }}>{allSaved ? "✅ 已全部存入" : "✅ 已存入 " + newSlots + " 人次 × $5"}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 700, color: "#e91e63" }}>{allSaved ? "—" : "$" + newAmount}</span>
                 </div>
               )}
             </>);
