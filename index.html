@@ -224,7 +224,7 @@ function App() {
           {rounds.length > 0 && <span style={S.badge(theme.accent)}>已完成 {rounds.length} 局</span>}
           {view !== "club" && <button style={S.sm(theme.textDim)} onClick={() => setView("club")}>👥 成員</button>}
           {(view === "round" || view === "seatDraw") && <button style={S.sm(theme.textDim)} onClick={() => setView("setup")}>⚙ 設定</button>}
-          {rounds.length > 0 && view !== "summary" && <button style={S.sm(theme.gold)} onClick={() => setView("summary")}>📊 總結</button>}
+          {rounds.length > 0 && view !== "summary" && view !== "checkout" && <button style={S.sm(theme.gold)} onClick={() => setView("summary")}>📊 戰績</button>}
           {currentRound && view !== "round" && view !== "seatDraw" && <button style={S.sm(theme.accent)} onClick={() => setView("round")}>🃏 返回牌局</button>}
         </div>
       </div>
@@ -489,11 +489,70 @@ function App() {
           </>)}
         </>)}
 
-        {/* ═══ SUMMARY ═══ */}
+        {/* ═══ SUMMARY (今日戰績) ═══ */}
         {view === "summary" && (<>
           <div style={{ marginBottom: "20px" }}>
-            <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>今日總結</h2>
+            <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>📊 今日戰績</h2>
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>共 {rounds.length} 局</p>
+          </div>
+
+          {rounds.length > 0 && (() => {
+            const pm = {};
+            rounds.forEach(r => r.players.forEach(p => { if (p.active && !pm[p.id]) pm[p.id] = { id: p.id, name: p.name }; }));
+            const pt = Object.values(pm).map(pl => ({
+              ...pl, total: rounds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0)
+            }));
+            const sorted = [...pt].sort((a, b) => b.total - a.total);
+            const rm = {}; sorted.forEach((p, i) => { rm[p.id] = i + 1; });
+            const cb = `1px solid ${theme.border}55`, hBg = "#0d1a14", cp = "4px 5px";
+            return (
+              <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: cp, paddingLeft: "6px", textAlign: "left", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 3 }}>玩家</th>
+                        {rounds.map(r => <th key={r.id} style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, whiteSpace: "nowrap" }}>{r.id}</th>)}
+                        <th style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.gold, fontWeight: 700, background: hBg, borderBottom: cb, whiteSpace: "nowrap" }}>小計</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map((pl, pi) => {
+                        const rank = rm[pl.id], f = rank === 1 && pl.total > 0, bg = pi % 2 === 0 ? theme.card : theme.cardAlt;
+                        return (
+                          <tr key={pl.id}>
+                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, maxWidth: "60px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f ? "👑 " : ""}{pl.name}</td>
+                            {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? theme.accent : v < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{v !== null ? v : ""}</td>; })}
+                            <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", borderBottom: cb, color: pl.total > 0 ? theme.accent : pl.total < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{pl.total}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr>
+                        <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 600, color: theme.textDim, fontSize: "10px", position: "sticky", left: 0, zIndex: 2, background: hBg, borderRight: cb }}>驗算</td>
+                        {rounds.map(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", borderRight: cb, color: t === 0 ? theme.accent : theme.red }}>{t}</td>; })}
+                        <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: theme.textDim }}>{sorted.reduce((a, p) => a + p.total, 0)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+            <button style={{ ...S.btn(theme.accent), flex: 1, padding: "14px", fontSize: "15px" }} onClick={() => setView("setup")}>♠ 設定第 {rounds.length + 1} 局</button>
+          </div>
+          <button style={{ ...S.btn("#e67e22", true), width: "100%", marginTop: "10px", padding: "12px", fontSize: "14px" }} onClick={() => setView("checkout")}>🏁 今日結算</button>
+        </>)}
+
+        {/* ═══ CHECKOUT (今日結算) ═══ */}
+        {view === "checkout" && (<>
+          <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>🏁 今日結算</h2>
+              <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>共 {rounds.length} 局</p>
+            </div>
+            <button style={S.sm(theme.textDim)} onClick={() => setView("summary")}>← 返回戰績</button>
           </div>
 
           {/* Fee & Piggy Pills */}
@@ -505,14 +564,12 @@ function App() {
             const allSaved = piggySavedRounds >= rounds.length;
             const handlePiggyToggle = () => {
               if (!piggyBank) {
-                // Turning ON: save new rounds
                 if (!allSaved) {
                   addPiggyRecord(newAmount, newRounds.length + "局 " + newSlots + "人次");
                   setPiggyPrevSaved(piggySavedRounds);
                   setPiggySavedRounds(rounds.length);
                 }
               } else {
-                // Turning OFF: undo last auto-save if it was just saved this session
                 if (piggySavedRounds === rounds.length && piggySavedRounds > piggyPrevSaved && piggyRecords.length > 0) {
                   savePiggy(piggyRecords.slice(0, -1));
                   setPiggySavedRounds(piggyPrevSaved);
@@ -546,6 +603,7 @@ function App() {
             </>);
           })()}
 
+          {/* Adjusted Table */}
           {rounds.length > 0 && (() => {
             const VENUE_FEE_PER_ROUND = 10;
             const PIGGY_PER_ROUND = 5;
@@ -624,10 +682,7 @@ function App() {
             </>);
           })()}
 
-          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-            <button style={{ ...S.btn(theme.accent), flex: 1, padding: "14px", fontSize: "15px" }} onClick={() => setView("setup")}>♠ 設定第 {rounds.length + 1} 局</button>
-          </div>
-          <button style={{ ...S.btn(theme.red, true), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={resetAll}>重置所有紀錄</button>
+          <button style={{ ...S.btn(theme.red, true), width: "100%", marginTop: "16px", padding: "12px", fontSize: "13px" }} onClick={resetAll}>重置所有紀錄</button>
 
           {/* Piggy Bank Records */}
           <div style={{ ...S.card, marginTop: "24px", background: "#1a1215", border: "1px solid #3a2030" }}>
