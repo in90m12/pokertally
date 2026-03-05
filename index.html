@@ -545,8 +545,8 @@ function App() {
                         const bg = pi % 2 === 0 ? theme.card : theme.cardAlt;
                         return (
                           <tr key={pl.id}>
-                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, maxWidth: "60px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pl.name}</td>
-                            {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? theme.accent : v < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{v !== null ? v : ""}</td>; })}
+                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, whiteSpace: "nowrap" }}>{pl.name.slice(0, 4)}</td>
+                            {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? theme.accent : v < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{v !== null ? Math.abs(v) : ""}</td>; })}
                             <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", borderBottom: cb, color: pl.total > 0 ? theme.accent : pl.total < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{pl.total}</td>
                           </tr>
                         );
@@ -559,6 +559,11 @@ function App() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "6px", fontSize: "10px" }}>
+                <span><span style={{ color: theme.accent }}>■</span> 贏</span>
+                <span><span style={{ color: theme.red }}>■</span> 輸</span>
               </div>
 
               {venueFee && (() => {
