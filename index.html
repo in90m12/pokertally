@@ -77,6 +77,7 @@ function App() {
   const [piggyBank, setPiggyBank] = useState(false);
   const [piggyRecords, setPiggyRecords] = useState([]);
   const [piggySavedRounds, setPiggySavedRounds] = useState(0);
+  const [piggyPrevSaved, setPiggyPrevSaved] = useState(0);
   const [piggyManual, setPiggyManual] = useState(false);
   const [piggyManualAmt, setPiggyManualAmt] = useState("");
   const [piggyManualNote, setPiggyManualNote] = useState("");
@@ -172,10 +173,10 @@ function App() {
       profit: p.active ? (parseInt(p.finalChips) - (1 + p.rebuys) * BUY_IN_CHIPS) : 0,
       profitCash: p.active ? ((parseInt(p.finalChips) - (1 + p.rebuys) * BUY_IN_CHIPS) / CHIP_RATE) : 0,
     }))};
-    setRounds([...rounds, settled]); setCurrentRound(null); setPiggyBank(false); setView("summary");
+    setRounds([...rounds, settled]); setCurrentRound(null); setPiggyPrevSaved(piggySavedRounds); setPiggyBank(false); setView("summary");
   };
 
-  const resetAll = () => { setRounds([]); setCurrentRound(null); setPiggySavedRounds(0); setPiggyBank(false); setVenueFee(false); setView("setup"); };
+  const resetAll = () => { setRounds([]); setCurrentRound(null); setPiggySavedRounds(0); setPiggyPrevSaved(0); setPiggyBank(false); setVenueFee(false); setView("setup"); };
 
   // ── Seat Draw ──
   const openSeatDraw = () => { setSeatDealers([]); setSeatResult(null); setSeatAnim(false); setView("seatDraw"); };
@@ -503,9 +504,19 @@ function App() {
             const newAmount = newSlots * PIGGY_PER_ROUND;
             const allSaved = piggySavedRounds >= rounds.length;
             const handlePiggyToggle = () => {
-              if (!piggyBank && !allSaved) {
-                addPiggyRecord(newAmount, newRounds.length + "局 " + newSlots + "人次");
-                setPiggySavedRounds(rounds.length);
+              if (!piggyBank) {
+                // Turning ON: save new rounds
+                if (!allSaved) {
+                  addPiggyRecord(newAmount, newRounds.length + "局 " + newSlots + "人次");
+                  setPiggyPrevSaved(piggySavedRounds);
+                  setPiggySavedRounds(rounds.length);
+                }
+              } else {
+                // Turning OFF: undo last auto-save if it was just saved this session
+                if (piggySavedRounds === rounds.length && piggySavedRounds > piggyPrevSaved && piggyRecords.length > 0) {
+                  savePiggy(piggyRecords.slice(0, -1));
+                  setPiggySavedRounds(piggyPrevSaved);
+                }
               }
               setPiggyBank(v => !v);
             };
