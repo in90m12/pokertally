@@ -545,7 +545,7 @@ function App() {
                         const bg = pi % 2 === 0 ? theme.card : theme.cardAlt;
                         return (
                           <tr key={pl.id}>
-                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, whiteSpace: "nowrap" }}>{pl.name.slice(0, 4)}</td>
+                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, maxWidth: "4.5em", overflow: "hidden", whiteSpace: "nowrap" }}>{pl.name}</td>
                             {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? theme.accent : v < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{v !== null ? Math.abs(v) : ""}</td>; })}
                             <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", borderBottom: cb, color: pl.total > 0 ? theme.accent : pl.total < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{pl.total}</td>
                           </tr>
