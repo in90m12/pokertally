@@ -223,7 +223,7 @@ function App() {
           {clubMembers.length > 0 && (
             <div style={S.card}>
               <div style={S.section}>成員列表（{clubMembers.length}人）</div>
-              {clubMembers.map((m, i) => (
+              {[...clubMembers].sort((a, b) => a.name.localeCompare(b.name, "zh-TW")).map((m, i) => (
                 <div key={m.id} style={S.row}>
                   <span style={{ color: theme.textDim, fontSize: "12px", width: "20px", textAlign: "center" }}>{i + 1}</span>
                   {editId === m.id ? (<>
@@ -257,7 +257,7 @@ function App() {
           </div>
           <div style={S.card}>
             <div style={S.section}>勾選參加的玩家（{selectedIds.length}人）</div>
-            {clubMembers.map(m => {
+            {[...clubMembers].sort((a, b) => a.name.localeCompare(b.name, "zh-TW")).map(m => {
               const ck = selectedIds.includes(m.id);
               return (
                 <div key={m.id} onClick={() => toggleSelect(m.id)} style={{ ...S.row, cursor: "pointer", border: ck ? `2px solid ${theme.accent}` : "2px solid transparent", background: ck ? "rgba(46,204,113,0.1)" : theme.cardAlt }}>
@@ -327,7 +327,7 @@ function App() {
               </div>
             ))}
             {(() => {
-              const avail = clubMembers.filter(m => !currentRound.players.some(p => p.id === m.id));
+              const avail = clubMembers.filter(m => !currentRound.players.some(p => p.id === m.id)).sort((a, b) => a.name.localeCompare(b.name, "zh-TW"));
               if (avail.length === 0) return null;
               return (
                 <details style={{ marginTop: "8px" }}>
@@ -493,8 +493,7 @@ function App() {
               const fee = venueFee ? roundsPlayed * VENUE_FEE_PER_ROUND : 0;
               return { ...pl, total: roundProfit - fee, fee, roundsPlayed };
             });
-            const sorted = [...pt].sort((a, b) => b.total - a.total);
-            const rm = {}; sorted.forEach((p, i) => { rm[p.id] = i + 1; });
+            const sorted = [...pt].sort((a, b) => a.name.localeCompare(b.name, "zh-TW"));
             const totalFee = sorted.reduce((a, p) => a + p.fee, 0);
             const cb = `1px solid ${theme.border}55`, hBg = "#0d1a14", cp = "4px 5px";
 
@@ -511,10 +510,10 @@ function App() {
                     </thead>
                     <tbody>
                       {sorted.map((pl, pi) => {
-                        const rank = rm[pl.id], f = rank === 1 && pl.total > 0, bg = pi % 2 === 0 ? theme.card : theme.cardAlt;
+                        const bg = pi % 2 === 0 ? theme.card : theme.cardAlt;
                         return (
                           <tr key={pl.id}>
-                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, maxWidth: "60px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f ? "👑 " : ""}{pl.name}</td>
+                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 2, background: bg, maxWidth: "60px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pl.name}</td>
                             {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? theme.accent : v < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{v !== null ? v : ""}</td>; })}
                             <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", borderBottom: cb, color: pl.total > 0 ? theme.accent : pl.total < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{pl.total}</td>
                           </tr>
