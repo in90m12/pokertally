@@ -74,6 +74,12 @@ function App() {
   const [seatResult, setSeatResult] = useState(null);
   const [seatAnim, setSeatAnim] = useState(false);
   const [venueFee, setVenueFee] = useState(false);
+  const [piggyBank, setPiggyBank] = useState(false);
+  const [piggyRecords, setPiggyRecords] = useState([]);
+  const [piggyAdded, setPiggyAdded] = useState(false);
+  const [piggyManual, setPiggyManual] = useState(false);
+  const [piggyManualAmt, setPiggyManualAmt] = useState("");
+  const [piggyManualNote, setPiggyManualNote] = useState("");
 
   useEffect(() => {
     try {
@@ -86,6 +92,23 @@ function App() {
   const saveClub = (members, nid) => {
     try { localStorage.setItem("poker-club", JSON.stringify({ members, nextId: nid })); } catch {}
   };
+
+  // ── Piggy Bank (localStorage, survives reset) ──
+  useEffect(() => {
+    try { const d = JSON.parse(localStorage.getItem("poker-piggybank")); if (d) setPiggyRecords(d); } catch {}
+  }, []);
+  const savePiggy = (records) => {
+    setPiggyRecords(records);
+    try { localStorage.setItem("poker-piggybank", JSON.stringify(records)); } catch {}
+  };
+  const addPiggyRecord = (amount, note) => {
+    const today = new Date().toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
+    savePiggy([...piggyRecords, { date: today, amount, note: note || "" }]);
+  };
+  const deletePiggyRecord = (index) => {
+    savePiggy(piggyRecords.filter((_, i) => i !== index));
+  };
+  const piggyTotal = piggyRecords.reduce((s, r) => s + r.amount, 0);
 
   const addMember = () => {
     const n = newName.trim();
@@ -484,17 +507,20 @@ function App() {
 
           {rounds.length > 0 && (() => {
             const VENUE_FEE_PER_ROUND = 10;
+            const PIGGY_PER_ROUND = 5;
             const pm = {};
             rounds.forEach(r => r.players.forEach(p => { if (p.active && !pm[p.id]) pm[p.id] = { id: p.id, name: p.name }; }));
             const pt = Object.values(pm).map(pl => {
               const roundProfit = rounds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0);
               const roundsPlayed = rounds.filter(r => r.players.some(p => p.id === pl.id && p.active)).length;
-              const fee = venueFee ? roundsPlayed * VENUE_FEE_PER_ROUND : 0;
-              return { ...pl, rawTotal: roundProfit, total: roundProfit - fee, fee, roundsPlayed };
+              const vFee = venueFee ? roundsPlayed * VENUE_FEE_PER_ROUND : 0;
+              const pFee = piggyBank ? roundsPlayed * PIGGY_PER_ROUND : 0;
+              return { ...pl, rawTotal: roundProfit, total: roundProfit - vFee - pFee, fee: vFee, piggy: pFee, roundsPlayed };
             });
             const sorted = [...pt].sort((a, b) => b.total - a.total);
             const rm = {}; sorted.forEach((p, i) => { rm[p.id] = i + 1; });
             const totalFee = sorted.reduce((a, p) => a + p.fee, 0);
+            const totalPiggy = sorted.reduce((a, p) => a + p.piggy, 0);
             const cb = `1px solid ${theme.border}55`, hBg = "#0d1a14", cp = "4px 5px";
 
             return (<>
@@ -522,7 +548,7 @@ function App() {
                       <tr>
                         <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 600, color: theme.textDim, fontSize: "10px", position: "sticky", left: 0, zIndex: 2, background: hBg, borderRight: cb }}>驗算</td>
                         {rounds.map(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", borderRight: cb, color: t === 0 ? theme.accent : theme.red }}>{t}</td>; })}
-                        <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: theme.textDim }}>{venueFee ? -totalFee : sorted.reduce((a, p) => a + p.total, 0)}</td>
+                        <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: theme.textDim }}>{sorted.reduce((a, p) => a + p.total, 0)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -557,10 +583,77 @@ function App() {
             </>);
           })()}
 
+          {/* Piggy Bank Toggle */}
+          {rounds.length > 0 && (() => {
+            const PIGGY_PER_ROUND = 5;
+            const totalSlots = rounds.reduce((s, r) => s + r.players.filter(p => p.active).length, 0);
+            const thisAmount = totalSlots * PIGGY_PER_ROUND;
+            const handlePiggyToggle = () => {
+              if (!piggyBank && !piggyAdded) {
+                addPiggyRecord(thisAmount, rounds.length + "\u5c40 " + totalSlots + "\u4eba\u6b21");
+                setPiggyAdded(true);
+              }
+              setPiggyBank(v => !v);
+            };
+            return (
+              <div style={{ marginTop: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${piggyBank ? "#e91e63" + "44" : theme.border}`, borderRadius: "10px" }}>
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 600 }}>🏦 撲滿基金</div>
+                    <div style={{ fontSize: "11px", color: theme.textDim }}>每人每局 $5，存入比賽基金</div>
+                  </div>
+                  <div onClick={handlePiggyToggle} style={{ width: "44px", height: "24px", borderRadius: "12px", background: piggyBank ? "#e91e63" : theme.border, position: "relative", cursor: "pointer", flexShrink: 0 }}>
+                    <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: piggyBank ? "22px" : "2px", transition: "left 0.2s" }} />
+                  </div>
+                </div>
+                {piggyBank && (
+                  <div style={{ marginTop: "6px", padding: "8px 14px", background: "#e91e6311", border: "1px solid #e91e6322", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "11px", color: "#e91e63" }}>{piggyAdded ? "\u2705 \u5df2\u5b58\u5165" : ""} {totalSlots} \u4eba\u6b21 × $5</span>
+                    <span style={{ fontSize: "14px", fontWeight: 700, color: "#e91e63" }}>${thisAmount}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
             <button style={{ ...S.btn(theme.accent), flex: 1, padding: "14px", fontSize: "15px" }} onClick={() => setView("setup")}>♠ 設定第 {rounds.length + 1} 局</button>
           </div>
           <button style={{ ...S.btn(theme.red, true), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={resetAll}>重置所有紀錄</button>
+
+          {/* Piggy Bank Records */}
+          <div style={{ ...S.card, marginTop: "24px", background: "#1a1215", border: "1px solid #3a2030" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: "#e91e63", textTransform: "uppercase", letterSpacing: "2px" }}>🏦 撲滿基金</div>
+              <span style={{ fontSize: "18px", fontWeight: 700, color: "#e91e63" }}>${piggyTotal}</span>
+            </div>
+            {piggyRecords.length === 0
+              ? <p style={{ color: theme.textDim, fontSize: "12px", textAlign: "center", padding: "8px 0" }}>尚無紀錄</p>
+              : piggyRecords.map((r, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "7px 10px", borderRadius: "6px", marginBottom: "4px", background: "rgba(233,30,99,0.06)" }}>
+                  <span style={{ fontSize: "11px", color: theme.textDim, minWidth: "40px" }}>{r.date}</span>
+                  <span style={{ fontSize: "11px", color: theme.textDim, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.note}</span>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: r.amount >= 0 ? "#e91e63" : theme.red }}>{r.amount >= 0 ? "+" : ""}{r.amount}</span>
+                  <button style={{ background: "transparent", border: "none", color: theme.textDim, fontSize: "14px", cursor: "pointer", padding: "0 4px" }} onClick={() => deletePiggyRecord(i)}>×</button>
+                </div>
+              ))
+            }
+            <div style={{ marginTop: "10px", borderTop: `1px solid #3a2030`, paddingTop: "10px" }}>
+              {!piggyManual
+                ? <button style={{ width: "100%", padding: "8px", borderRadius: "6px", background: "transparent", border: "1px solid #e91e6333", color: "#e91e63", fontSize: "12px", cursor: "pointer" }} onClick={() => setPiggyManual(true)}>± 手動調整金額</button>
+                : <div>
+                    <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
+                      <input type="text" inputMode="numeric" style={{ ...S.input, flex: 1, fontSize: "12px", padding: "6px 8px" }} placeholder="金額（負數扣除）" value={piggyManualAmt} onChange={e => { if (/^-?\d*$/.test(e.target.value)) setPiggyManualAmt(e.target.value); }} />
+                      <input type="text" style={{ ...S.input, flex: 1, fontSize: "12px", padding: "6px 8px" }} placeholder="備註（選填）" value={piggyManualNote} onChange={e => setPiggyManualNote(e.target.value)} />
+                    </div>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button style={{ flex: 1, padding: "6px", borderRadius: "6px", background: "#e91e63", color: "#fff", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer" }} onClick={() => { const v = parseInt(piggyManualAmt); if (!isNaN(v) && v !== 0) { addPiggyRecord(v, piggyManualNote || "手動調整"); setPiggyManualAmt(""); setPiggyManualNote(""); setPiggyManual(false); } }}>確認</button>
+                      <button style={{ flex: 1, padding: "6px", borderRadius: "6px", background: "transparent", border: "1px solid #e91e6333", color: "#e91e63", fontSize: "12px", cursor: "pointer" }} onClick={() => { setPiggyManual(false); setPiggyManualAmt(""); setPiggyManualNote(""); }}>取消</button>
+                    </div>
+                  </div>
+              }
+            </div>
+          </div>
         </>)}
       </div>
     </div>
