@@ -251,32 +251,6 @@ function App() {
             <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>👥 俱樂部成員</h2>
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>管理常駐玩家名單，資料會自動儲存</p>
           </div>
-          <div style={S.card}>
-            <div style={S.section}>新增成員</div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <input style={S.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="輸入玩家名稱" onKeyDown={e => e.key === "Enter" && addMember()} />
-              <button style={{ ...S.btn(theme.accent), whiteSpace: "nowrap", padding: "8px 16px" }} onClick={addMember}>+ 新增</button>
-            </div>
-          </div>
-          {clubMembers.length > 0 && (
-            <div style={S.card}>
-              <div style={S.section}>成員列表（{clubMembers.length}人）</div>
-              {[...clubMembers].sort((a, b) => a.name.localeCompare(b.name, "zh-TW")).map((m, i) => (
-                <div key={m.id} style={S.row}>
-                  <span style={{ color: theme.textDim, fontSize: "12px", width: "20px", textAlign: "center" }}>{i + 1}</span>
-                  {editId === m.id ? (<>
-                    <input style={{ ...S.input, flex: 1 }} value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmEdit()} autoFocus />
-                    <button style={S.sm(theme.accent)} onClick={confirmEdit}>✓</button>
-                    <button style={S.sm(theme.textDim)} onClick={() => setEditId(null)}>✕</button>
-                  </>) : (<>
-                    <span style={{ fontWeight: 600, flex: 1 }}>{m.name}</span>
-                    <button style={S.sm(theme.textDim)} onClick={() => startEdit(m)}>✎</button>
-                    <button style={S.sm(theme.red)} onClick={() => removeMember(m.id)}>✕</button>
-                  </>)}
-                </div>
-              ))}
-            </div>
-          )}
 
           <div style={S.card}>
             <div style={S.section}>⚙ 籌碼設定</div>
@@ -306,6 +280,33 @@ function App() {
           )}
           {clubMembers.length > 0 && clubMembers.length < 2 && (
             <p style={{ color: theme.textDim, textAlign: "center", fontSize: "13px" }}>至少需要 2 位成員才能開始</p>
+          )}
+
+          <div style={{ ...S.card, marginTop: "16px" }}>
+            <div style={S.section}>新增成員</div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input style={S.input} value={newName} onChange={e => setNewName(e.target.value)} placeholder="輸入玩家名稱" onKeyDown={e => e.key === "Enter" && addMember()} />
+              <button style={{ ...S.btn(theme.accent), whiteSpace: "nowrap", padding: "8px 16px" }} onClick={addMember}>+ 新增</button>
+            </div>
+          </div>
+          {clubMembers.length > 0 && (
+            <div style={S.card}>
+              <div style={S.section}>成員列表（{clubMembers.length}人）</div>
+              {[...clubMembers].sort((a, b) => a.name.localeCompare(b.name, "zh-TW")).map((m, i) => (
+                <div key={m.id} style={S.row}>
+                  <span style={{ color: theme.textDim, fontSize: "12px", width: "20px", textAlign: "center" }}>{i + 1}</span>
+                  {editId === m.id ? (<>
+                    <input style={{ ...S.input, flex: 1 }} value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key === "Enter" && confirmEdit()} autoFocus />
+                    <button style={S.sm(theme.accent)} onClick={confirmEdit}>✓</button>
+                    <button style={S.sm(theme.textDim)} onClick={() => setEditId(null)}>✕</button>
+                  </>) : (<>
+                    <span style={{ fontWeight: 600, flex: 1 }}>{m.name}</span>
+                    <button style={S.sm(theme.textDim)} onClick={() => startEdit(m)}>✎</button>
+                    <button style={S.sm(theme.red)} onClick={() => removeMember(m.id)}>✕</button>
+                  </>)}
+                </div>
+              ))}
+            </div>
           )}
         </>)}
 
