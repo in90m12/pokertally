@@ -161,6 +161,10 @@ function App() {
     addPlayerMidRound(newMember);
     setMidRoundNewName("");
   };
+  const removePlayerMidRound = (pid) => {
+    if (!confirm("確定要移除此玩家？")) return;
+    setCurrentRound(r => ({ ...r, players: r.players.filter(p => p.id !== pid) }));
+  };
 
   const totalRoundRebuys = currentRound ? currentRound.players.filter(p => p.active).reduce((s, p) => s + p.rebuys, 0) : 0;
 
@@ -193,7 +197,7 @@ function App() {
   const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setVenueFee(false); try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); } catch {} setView("setup"); };
 
   // ── Seat Draw ──
-  const openSeatDraw = () => { setSeatDealers([]); setSeatResult(null); setSeatAnim(false); setView("seatDraw"); };
+  const openSeatDraw = () => { if (!seatResult) { setSeatDealers([]); setSeatAnim(false); } setView("seatDraw"); };
   const toggleDealer = (pid) => setSeatDealers(p => p.includes(pid) ? p.filter(x => x !== pid) : p.length < 2 ? [...p, pid] : p);
 
   const runSeatDraw = () => {
@@ -347,7 +351,7 @@ function App() {
             <button style={S.sm(theme.textDim)} onClick={() => { setCurrentRound(null); setView("setup"); }}>取消此局</button>
           </div>
 
-          <button style={{ ...S.btn(theme.purple, true), width: "100%", padding: "10px", marginBottom: "16px", fontSize: "14px" }} onClick={openSeatDraw}>🎲 抽座位</button>
+          <button style={{ ...S.btn(theme.purple, true), width: "100%", padding: "10px", marginBottom: "16px", fontSize: "14px" }} onClick={openSeatDraw}>{seatResult ? "🎲 查看座位" : "🎲 抽座位"}</button>
 
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderRadius: "10px", marginBottom: "16px",
@@ -367,6 +371,7 @@ function App() {
                   <button style={{ ...S.sm(p.active ? theme.accent : theme.textDim), fontSize: "10px", padding: "2px 6px", minWidth: "36px" }} onClick={() => toggleActive(p.id)}>{p.active ? "IN" : "OUT"}</button>
                   <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
                   {p.active && <span style={{ fontSize: "12px", color: theme.textDim }}>投入 {formatChips((1 + p.rebuys) * buyInChips)}</span>}
+                  <button style={{ background: "transparent", border: "none", color: theme.textDim, fontSize: "14px", cursor: "pointer", padding: "0 2px" }} onClick={() => removePlayerMidRound(p.id)}>✕</button>
                 </div>
                 {p.active && (
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", paddingLeft: "44px" }}>
@@ -571,7 +576,7 @@ function App() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
                     <thead>
                       <tr>
-                        <th style={{ padding: cp, paddingLeft: "6px", textAlign: "left", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb }}>玩家</th>
+                        <th style={{ padding: cp, paddingLeft: "6px", textAlign: "left", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 3 }}>玩家</th>
                         {rounds.map(r => <th key={r.id} style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, whiteSpace: "nowrap" }}>{r.id}</th>)}
                         <th style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.gold, fontWeight: 700, background: hBg, borderBottom: cb, whiteSpace: "nowrap" }}>小計</th>
                       </tr>
@@ -581,14 +586,14 @@ function App() {
                         const bg = pi % 2 === 0 ? theme.card : theme.cardAlt;
                         return (
                           <tr key={pl.id}>
-                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, background: bg, overflow: "hidden", whiteSpace: "nowrap" }}>{rounds.length >= 6 ? pl.name.slice(0, 4) : pl.name}</td>
+                            <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 700, borderBottom: cb, borderRight: cb, background: bg, overflow: "hidden", whiteSpace: "nowrap", position: "sticky", left: 0, zIndex: 2 }}>{pl.name}</td>
                             {rounds.map(r => { const rp = r.players.find(p => p.id === pl.id); const v = rp && rp.active ? rp.profitCash : null; return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 500, fontVariantNumeric: "tabular-nums", borderBottom: cb, borderRight: cb, color: v === null ? "transparent" : v > 0 ? theme.accent : v < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{v !== null ? Math.abs(v) : ""}</td>; })}
                             <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", borderBottom: cb, color: pl.total > 0 ? theme.accent : pl.total < 0 ? theme.red : theme.textDim, whiteSpace: "nowrap" }}>{pl.total}</td>
                           </tr>
                         );
                       })}
                       <tr>
-                        <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 600, color: theme.textDim, fontSize: "10px", background: hBg, borderRight: cb }}>驗算</td>
+                        <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 600, color: theme.textDim, fontSize: "10px", background: hBg, borderRight: cb, position: "sticky", left: 0, zIndex: 2 }}>驗算</td>
                         {rounds.map(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", borderRight: cb, color: t === 0 ? theme.accent : theme.red }}>{t}</td>; })}
                         <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: venueFee ? "#f39c12" : theme.textDim, fontSize: venueFee ? "10px" : "11px" }}>{venueFee ? "場地費$" + totalFee : sorted.reduce((a, p) => a + p.total, 0)}</td>
                       </tr>
