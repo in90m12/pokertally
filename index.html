@@ -89,23 +89,20 @@ function App() {
   const [seatAnim, setSeatAnim] = useState(false);
   const [venueFee, setVenueFee] = useState(false);
   const [toast, setToast] = useState("");
+  const [isCapturing, setIsCapturing] = useState(false);
   const summaryRef = useRef(null);
 
   const shareImage = async () => {
     if (!summaryRef.current) return;
     setToast("capturing");
-    await new Promise(r => setTimeout(r, 100));
+    setIsCapturing(true);
+    await new Promise(r => setTimeout(r, 200));
     try {
       const el = summaryRef.current;
-      // Hide UI elements not needed in screenshot, save original display
-      const hideEls = el.querySelectorAll("[data-hide-capture]");
-      const hideOriginal = [];
-      hideEls.forEach(e => { hideOriginal.push(e.style.cssText); e.style.display = "none"; });
-      // Save and expand ALL overflow-restricted elements
+      // Save and expand overflow-restricted elements
       const allEls = el.querySelectorAll("*");
       const saved = new Map();
       allEls.forEach(e => {
-        if (e.hasAttribute && e.hasAttribute("data-hide-capture")) return;
         const s = e.style;
         const cs = s.cssText;
         let changed = false;
@@ -121,9 +118,9 @@ function App() {
       const w = Math.max(el.scrollWidth + 40, 500);
       const canvas = await html2canvas(el, { backgroundColor: "#0a0f0d", scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, width: w, windowWidth: w });
 
-      // Restore all styles
+      // Restore overflow styles
       saved.forEach((css, e) => { e.style.cssText = css; });
-      hideEls.forEach((e, i) => { e.style.cssText = hideOriginal[i]; });
+      setIsCapturing(false);
 
       canvas.toBlob(async (blob) => {
         if (!blob) { setToast("error"); setTimeout(() => setToast(""), 2000); return; }
@@ -141,7 +138,7 @@ function App() {
         document.body.removeChild(a); URL.revokeObjectURL(url);
         setToast("");
       }, "image/png");
-    } catch (e) { console.error(e); setToast("error"); setTimeout(() => setToast(""), 2000); }
+    } catch (e) { console.error(e); setIsCapturing(false); setToast("error"); setTimeout(() => setToast(""), 2000); }
   };
 
 
@@ -638,7 +635,7 @@ function App() {
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>{new Date().toLocaleDateString("zh-TW", { month: "long", day: "numeric" })} · 共 {rounds.length} 局</p>
           </div>
 
-          <div data-hide-capture style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
+          {!isCapturing && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
             <div style={{ fontSize: "13px", fontWeight: 600 }}>🏠 場地費</div>
             {venueFee && (
               <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -650,7 +647,7 @@ function App() {
             <div onClick={() => setVenueFee(v => !v)} style={{ width: "44px", height: "24px", borderRadius: "12px", background: venueFee ? theme.accent : theme.border, position: "relative", cursor: "pointer", flexShrink: 0 }}>
               <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: venueFee ? "22px" : "2px", transition: "left 0.2s" }} />
             </div>
-          </div>
+          </div>}
 
           {rounds.length > 0 && (() => {
             const VENUE_FEE_PER_ROUND = venueFeeAmt;
