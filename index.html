@@ -204,9 +204,6 @@ function App() {
     setCurrentRound(rd); setView("round");
   };
 
-  const toggleActive = (pid) => setCurrentRound(r => ({
-    ...r, players: r.players.map(p => p.id === pid ? { ...p, active: !p.active, rebuys: !p.active ? p.rebuys : 0, finalChips: !p.active ? p.finalChips : "" } : p)
-  }));
 
   const addPlayerMidRound = (member) => {
     setCurrentRound(r => ({
@@ -430,30 +427,21 @@ function App() {
           <div style={S.card}>
             <div style={S.section}>各玩家結算</div>
             {currentRound.players.map(p => (
-              <div key={p.id} style={{ ...S.row, opacity: p.active ? 1 : 0.4, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", marginBottom: p.active ? "8px" : 0 }}>
-                  <button style={{ ...S.sm(p.active ? theme.accent : theme.textDim), fontSize: "10px", padding: "2px 6px", minWidth: "36px" }} onClick={() => toggleActive(p.id)}>{p.active ? "IN" : "OUT"}</button>
+              <div key={p.id} style={{ ...S.row, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", marginBottom: "8px" }}>
                   <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
-                  {p.active && <span style={{ fontSize: "12px", color: theme.textDim }}>投入 {formatChips((1 + p.rebuys) * buyInChips)}</span>}
+                  <span style={{ fontSize: "12px", color: theme.textDim }}>投入 {formatChips((1 + p.rebuys) * buyInChips)}</span>
                   <button style={{ background: "transparent", border: "none", color: theme.textDim, fontSize: "14px", cursor: "pointer", padding: "0 2px" }} onClick={() => removePlayerMidRound(p.id)}>✕</button>
                 </div>
-                {p.active && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", paddingLeft: "44px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "12px", color: theme.textDim, whiteSpace: "nowrap" }}>加買</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <button style={S.rbtn} onClick={() => setRebuys(p.id, -1)}>−</button>
-                        <span style={{ width: "18px", textAlign: "center", fontWeight: 600 }}>{p.rebuys}</span>
-                        <button style={S.rbtn} onClick={() => setRebuys(p.id, 1)}>+</button>
-                      </div>
-                    </div>
-                    <div style={{ flex: 1 }} />
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "12px", color: theme.textDim, whiteSpace: "nowrap" }}>結算籌碼</span>
-                      <input type="text" inputMode="numeric" pattern="[0-9]*" style={S.chipInput} value={p.finalChips} onChange={e => { if (/^\d*$/.test(e.target.value)) setFinalChips(p.id, e.target.value); }} placeholder="0" />
-                    </div>
-                  </div>
-                )}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", paddingLeft: "0" }}>
+                  <span style={{ fontSize: "12px", color: theme.textDim, whiteSpace: "nowrap" }}>加買</span>
+                  <button style={S.rbtn} onClick={() => setRebuys(p.id, -1)}>−</button>
+                  <span style={{ width: "18px", textAlign: "center", fontWeight: 600, flexShrink: 0 }}>{p.rebuys}</span>
+                  <button style={S.rbtn} onClick={() => setRebuys(p.id, 1)}>+</button>
+                  <div style={{ flex: 1 }} />
+                  <span style={{ fontSize: "12px", color: theme.textDim, whiteSpace: "nowrap" }}>結算籌碼</span>
+                  <input type="text" inputMode="numeric" pattern="[0-9]*" style={{ ...S.chipInput, width: "auto", flex: "0 1 90px", minWidth: "60px" }} value={p.finalChips} onChange={e => { if (/^\d*$/.test(e.target.value)) setFinalChips(p.id, e.target.value); }} placeholder="0" />
+                </div>
               </div>
             ))}
             {(() => {
