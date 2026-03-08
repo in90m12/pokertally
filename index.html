@@ -62,7 +62,7 @@ const S = {
   btn: (c = theme.accent, o = false) => ({ background: o ? "transparent" : c, color: o ? c : (c === theme.gold ? "#000" : "#fff"), border: o ? `1.5px solid ${c}` : "none", borderRadius: "8px", padding: "10px 20px", fontSize: "14px", fontWeight: 600, cursor: "pointer", letterSpacing: "0.5px" }),
   sm: (c = theme.textDim) => ({ background: "transparent", color: c, border: `1px solid ${c}33`, borderRadius: "6px", padding: "4px 10px", fontSize: "12px", cursor: "pointer" }),
   badge: (c) => ({ background: `${c}22`, color: c, padding: "2px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: 600 }),
-  rbtn: { width: "26px", height: "26px", borderRadius: "50%", border: `1px solid ${theme.border}`, background: "rgba(0,0,0,0.3)", color: theme.text, fontSize: "16px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", lineHeight: 1 },
+  rbtn: { width: "36px", height: "36px", borderRadius: "50%", border: `1px solid ${theme.border}`, background: "rgba(0,0,0,0.3)", color: theme.text, fontSize: "20px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", lineHeight: 1 },
 };
 
 function App() {
@@ -97,6 +97,9 @@ function App() {
     await new Promise(r => setTimeout(r, 100));
     try {
       const el = summaryRef.current;
+      // Hide UI elements not needed in screenshot
+      const hideEls = el.querySelectorAll("[data-hide-capture]");
+      hideEls.forEach(e => { e.style.display = "none"; });
       // Save and expand ALL overflow-restricted elements
       const allEls = el.querySelectorAll("*");
       const saved = new Map();
@@ -118,6 +121,7 @@ function App() {
 
       // Restore all styles
       saved.forEach((css, e) => { e.style.cssText = css; });
+      hideEls.forEach(e => { e.style.display = ""; });
 
       canvas.toBlob(async (blob) => {
         if (!blob) { setToast("error"); setTimeout(() => setToast(""), 2000); return; }
@@ -603,7 +607,7 @@ function App() {
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>共 {rounds.length} 局</p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
+          <div data-hide-capture style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
             <div style={{ fontSize: "13px", fontWeight: 600 }}>🏠 場地費</div>
             {venueFee && (
               <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
