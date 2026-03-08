@@ -97,13 +97,15 @@ function App() {
     await new Promise(r => setTimeout(r, 100));
     try {
       const el = summaryRef.current;
-      // Hide UI elements not needed in screenshot
+      // Hide UI elements not needed in screenshot, save original display
       const hideEls = el.querySelectorAll("[data-hide-capture]");
-      hideEls.forEach(e => { e.style.display = "none"; });
+      const hideOriginal = [];
+      hideEls.forEach(e => { hideOriginal.push(e.style.cssText); e.style.display = "none"; });
       // Save and expand ALL overflow-restricted elements
       const allEls = el.querySelectorAll("*");
       const saved = new Map();
       allEls.forEach(e => {
+        if (e.hasAttribute && e.hasAttribute("data-hide-capture")) return;
         const s = e.style;
         const cs = s.cssText;
         let changed = false;
@@ -121,7 +123,7 @@ function App() {
 
       // Restore all styles
       saved.forEach((css, e) => { e.style.cssText = css; });
-      hideEls.forEach(e => { e.style.display = ""; });
+      hideEls.forEach((e, i) => { e.style.cssText = hideOriginal[i]; });
 
       canvas.toBlob(async (blob) => {
         if (!blob) { setToast("error"); setTimeout(() => setToast(""), 2000); return; }
