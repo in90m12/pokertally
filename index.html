@@ -367,6 +367,26 @@ function App() {
             <p style={{ color: theme.textDim, textAlign: "center", fontSize: "13px" }}>至少需要 2 位成員才能開始</p>
           )}
 
+          <details style={{ marginTop: "16px" }}>
+            <summary style={{ cursor: "pointer", fontSize: "13px", color: theme.textDim, fontWeight: 600, padding: "8px 0", listStyle: "none", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "14px" }}>🔄</span> 牌局資料轉移
+            </summary>
+            <div style={{ ...S.card, marginTop: "4px" }}>
+              <p style={{ fontSize: "11px", color: theme.textDim, marginBottom: "10px" }}>記錄的人要離開？匯出資料傳給接手的人匯入即可繼續。</p>
+              <button style={{ ...S.btn(theme.accent), width: "100%", padding: "10px", fontSize: "13px", marginBottom: "8px" }} onClick={exportGameData}>📤 匯出（複製到剪貼簿）</button>
+              {!showImport
+                ? <button style={{ ...S.btn(theme.textDim, true), width: "100%", padding: "10px", fontSize: "13px" }} onClick={() => setShowImport(true)}>📥 匯入</button>
+                : <div>
+                    <textarea style={{ ...S.input, width: "100%", height: "80px", fontSize: "11px", fontFamily: "monospace", resize: "none", marginBottom: "6px" }} value={importText} onChange={e => setImportText(e.target.value)} placeholder="貼上匯出的資料..." />
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button style={{ ...S.btn(theme.accent), flex: 1, padding: "8px", fontSize: "13px" }} onClick={importGameData}>確認匯入</button>
+                      <button style={{ ...S.btn(theme.textDim, true), flex: 1, padding: "8px", fontSize: "13px" }} onClick={() => { setShowImport(false); setImportText(""); }}>取消</button>
+                    </div>
+                  </div>
+              }
+            </div>
+          </details>
+
           <div style={{ ...S.card, marginTop: "16px" }}>
             <div style={S.section}>新增成員</div>
             <div style={{ display: "flex", gap: "8px" }}>
@@ -394,25 +414,6 @@ function App() {
             </div>
           )}
 
-          <details style={{ marginTop: "16px" }}>
-            <summary style={{ cursor: "pointer", fontSize: "13px", color: theme.textDim, fontWeight: 600, padding: "8px 0", listStyle: "none", display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "14px" }}>🔄</span> 牌局資料轉移
-            </summary>
-            <div style={{ ...S.card, marginTop: "4px" }}>
-              <p style={{ fontSize: "11px", color: theme.textDim, marginBottom: "10px" }}>記錄的人要離開？匯出資料傳給接手的人匯入即可繼續。</p>
-              <button style={{ ...S.btn(theme.accent), width: "100%", padding: "10px", fontSize: "13px", marginBottom: "8px" }} onClick={exportGameData}>📤 匯出（複製到剪貼簿）</button>
-              {!showImport
-                ? <button style={{ ...S.btn(theme.textDim, true), width: "100%", padding: "10px", fontSize: "13px" }} onClick={() => setShowImport(true)}>📥 匯入</button>
-                : <div>
-                    <textarea style={{ ...S.input, width: "100%", height: "80px", fontSize: "11px", fontFamily: "monospace", resize: "none", marginBottom: "6px" }} value={importText} onChange={e => setImportText(e.target.value)} placeholder="貼上匯出的資料..." />
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      <button style={{ ...S.btn(theme.accent), flex: 1, padding: "8px", fontSize: "13px" }} onClick={importGameData}>確認匯入</button>
-                      <button style={{ ...S.btn(theme.textDim, true), flex: 1, padding: "8px", fontSize: "13px" }} onClick={() => { setShowImport(false); setImportText(""); }}>取消</button>
-                    </div>
-                  </div>
-              }
-            </div>
-          </details>
         </>)}
 
         {/* ═══ SETUP ═══ */}
