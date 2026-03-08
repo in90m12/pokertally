@@ -97,21 +97,27 @@ function App() {
     await new Promise(r => setTimeout(r, 100));
     try {
       const el = summaryRef.current;
-      // Temporarily expand all overflow containers and remove sticky
-      const scrollDivs = el.querySelectorAll("div");
-      const origStyles = [];
-      scrollDivs.forEach(d => {
-        origStyles.push(d.style.cssText);
-        if (d.style.overflowX === "auto") { d.style.overflow = "visible"; d.style.maxWidth = "none"; }
+      // Save and expand ALL overflow-restricted elements
+      const allEls = el.querySelectorAll("*");
+      const saved = new Map();
+      allEls.forEach(e => {
+        const s = e.style;
+        const cs = s.cssText;
+        let changed = false;
+        if (s.overflow === "hidden" || s.overflowX === "auto" || s.overflowX === "hidden") {
+          s.overflow = "visible"; s.overflowX = "visible"; changed = true;
+        }
+        if (s.maxWidth) { s.maxWidth = "none"; changed = true; }
+        if (s.position === "sticky") { s.position = "relative"; changed = true; }
+        if (changed) saved.set(e, cs);
       });
-      const stickyCells = el.querySelectorAll("td, th");
-      stickyCells.forEach(c => { if (c.style.position === "sticky") c.style.position = "relative"; });
 
-      const canvas = await html2canvas(el, { backgroundColor: "#0a0f0d", scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: Math.max(el.scrollWidth + 40, 400) });
+      await new Promise(r => setTimeout(r, 50));
+      const w = Math.max(el.scrollWidth + 40, 500);
+      const canvas = await html2canvas(el, { backgroundColor: "#0a0f0d", scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, width: w, windowWidth: w });
 
-      // Restore styles
-      scrollDivs.forEach((d, i) => { d.style.cssText = origStyles[i]; });
-      stickyCells.forEach(c => { if (c.style.position === "relative") c.style.position = "sticky"; });
+      // Restore all styles
+      saved.forEach((css, e) => { e.style.cssText = css; });
 
       canvas.toBlob(async (blob) => {
         if (!blob) { setToast("error"); setTimeout(() => setToast(""), 2000); return; }
