@@ -18,6 +18,7 @@ input[type="text"]:focus{border-color:#2ecc71!important}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -88,47 +89,49 @@ function App() {
   const [seatAnim, setSeatAnim] = useState(false);
   const [venueFee, setVenueFee] = useState(false);
   const [toast, setToast] = useState("");
+  const summaryRef = useRef(null);
 
-  const generateSummaryText = (rds) => {
-    const pm = {};
-    rds.forEach(r => r.players.forEach(p => { if (p.active && !pm[p.id]) pm[p.id] = { id: p.id, name: p.name }; }));
-    const pt = Object.values(pm).map(pl => ({
-      ...pl,
-      perRound: rds.map(r => { const rp = r.players.find(p => p.id === pl.id); return rp && rp.active ? rp.profitCash : null; }),
-      total: rds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0),
-    }));
-    const sorted = [...pt].sort((a, b) => nameSort(a.name, b.name));
-    const maxName = Math.max(...sorted.map(p => p.name.length), 2);
-    const strW = (s) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 0x7f ? 2 : 1), 0);
-    const padr = (s, w) => " ".repeat(Math.max(0, w - strW(s))) + s;
-    const maxW = Math.max(...sorted.map(p => strW(p.name)), strW("玩家"), strW("驗算"));
-    const padName = (s) => s + " ".repeat(Math.max(0, maxW - strW(s)));
-    const cw = 7;
-    let txt = "♠ 今日戰績（共 " + rds.length + " 局）\n";
-    txt += padName("玩家");
-    rds.forEach((_, i) => { txt += padr("R" + (i + 1), cw); });
-    txt += padr("小計", cw) + "\n";
-    sorted.forEach(pl => {
-      txt += padName(pl.name);
-      pl.perRound.forEach(v => { txt += padr(v === null ? "" : String(v), cw); });
-      txt += padr(String(pl.total), cw) + "\n";
-    });
-    txt += padName("驗算");
-    rds.forEach(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); txt += padr(String(t), cw); });
-    txt += padr("0", cw);
-    return txt;
-  };
-
-  const copySummary = async (rds) => {
-    const txt = generateSummaryText(rds);
+  const shareImage = async () => {
+    if (!summaryRef.current) return;
+    setToast("capturing");
+    await new Promise(r => setTimeout(r, 100));
     try {
-      await navigator.clipboard.writeText(txt);
-      setToast("success");
-    } catch {
-      setToast("error");
-    }
-    setTimeout(() => setToast(""), 2000);
+      const el = summaryRef.current;
+      // Temporarily expand all overflow containers and remove sticky
+      const scrollDivs = el.querySelectorAll("div");
+      const origStyles = [];
+      scrollDivs.forEach(d => {
+        origStyles.push(d.style.cssText);
+        if (d.style.overflowX === "auto") { d.style.overflow = "visible"; d.style.maxWidth = "none"; }
+      });
+      const stickyCells = el.querySelectorAll("td, th");
+      stickyCells.forEach(c => { if (c.style.position === "sticky") c.style.position = "relative"; });
+
+      const canvas = await html2canvas(el, { backgroundColor: "#0a0f0d", scale: 1.5, useCORS: true, logging: false, scrollX: 0, scrollY: 0, windowWidth: Math.max(el.scrollWidth + 40, 400) });
+
+      // Restore styles
+      scrollDivs.forEach((d, i) => { d.style.cssText = origStyles[i]; });
+      stickyCells.forEach(c => { if (c.style.position === "relative") c.style.position = "sticky"; });
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) { setToast("error"); setTimeout(() => setToast(""), 2000); return; }
+        if (navigator.share && navigator.canShare) {
+          const file = new File([blob], "poker-result.png", { type: "image/png" });
+          const sd = { files: [file] };
+          try {
+            if (navigator.canShare(sd)) { await navigator.share(sd); setToast(""); return; }
+          } catch (e) { if (e.name !== "AbortError") { setToast("error"); setTimeout(() => setToast(""), 2000); return; } setToast(""); return; }
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "poker-result.png";
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+        setToast("");
+      }, "image/png");
+    } catch (e) { console.error(e); setToast("error"); setTimeout(() => setToast(""), 2000); }
   };
+
 
   const [chipRate, setChipRate] = useState(() => {
     try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.chipRate || DEFAULT_CHIP_RATE; } catch { return DEFAULT_CHIP_RATE; }
@@ -243,7 +246,6 @@ function App() {
     }))};
     const newRounds = [...rounds, settled];
     setRounds(newRounds); setCurrentRound(null); setView("summary");
-    copySummary(newRounds);
   };
 
   const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setVenueFee(false); try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); } catch {} setView("setup"); };
@@ -589,6 +591,7 @@ function App() {
 
         {/* ═══ SUMMARY ═══ */}
         {view === "summary" && (<>
+          <div ref={summaryRef} style={{ background: "#0a0f0d", padding: "4px 0" }}>
           <div style={{ marginBottom: "20px" }}>
             <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>今日總結</h2>
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>共 {rounds.length} 局</p>
@@ -686,19 +689,19 @@ function App() {
               })()}
             </>);
           })()}
+          </div>
 
           <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
             <button style={{ ...S.btn(theme.accent), flex: 1, padding: "14px", fontSize: "15px" }} onClick={() => setView("setup")}>♠ 設定第 {rounds.length + 1} 局</button>
           </div>
-          <button style={{ ...S.btn("#3498db"), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={() => copySummary(rounds)}>📋 複製戰績</button>
+          <button style={{ ...S.btn("#9b59b6"), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={shareImage}>📷 分享戰績圖</button>
           <button style={{ ...S.btn(theme.red, true), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={resetAll}>重置所有紀錄</button>
         </>)}
 
         {toast && (
           <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", padding: "24px 32px", borderRadius: "16px", background: "rgba(0,0,0,0.9)", color: "#fff", textAlign: "center", zIndex: 100, boxShadow: "0 8px 32px rgba(0,0,0,0.5)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
-            <div style={{ fontSize: "32px", marginBottom: "8px" }}>{toast === "success" ? "📋" : "❌"}</div>
-            <div style={{ fontSize: "16px", fontWeight: 700, marginBottom: "4px" }}>{toast === "success" ? "已複製戰績" : "複製失敗"}</div>
-            {toast === "success" && <div style={{ fontSize: "13px", color: "#aaa" }}>可直接貼到 LINE 上</div>}
+            <div style={{ fontSize: "32px", marginBottom: "8px" }}>{toast === "capturing" ? "📷" : "❌"}</div>
+            <div style={{ fontSize: "16px", fontWeight: 700 }}>{toast === "capturing" ? "產生圖片中..." : "操作失敗"}</div>
           </div>
         )}
       </div>
