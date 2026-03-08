@@ -29,6 +29,14 @@ const DEFAULT_BUY_IN_CASH = 500;
 
 function formatChips(n) { return n.toLocaleString(); }
 function formatCash(n) { return `$${n.toLocaleString()}`; }
+function nameSort(a, b) {
+  const isAscii = (s) => s.charCodeAt(0) <= 0x7f;
+  const aA = isAscii(a), bA = isAscii(b);
+  if (aA && !bA) return -1;
+  if (!aA && bA) return 1;
+  if (!aA && !bA) return a.localeCompare(b, "zh-TW-u-co-stroke");
+  return a.localeCompare(b, "en");
+}
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -89,21 +97,23 @@ function App() {
       perRound: rds.map(r => { const rp = r.players.find(p => p.id === pl.id); return rp && rp.active ? rp.profitCash : null; }),
       total: rds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0),
     }));
-    const sorted = [...pt].sort((a, b) => a.name.localeCompare(b.name, "zh-TW"));
+    const sorted = [...pt].sort((a, b) => nameSort(a.name, b.name));
     const maxName = Math.max(...sorted.map(p => p.name.length), 2);
-    const pad = (s, w) => s + " ".repeat(Math.max(0, w - s.length));
-    const padr = (s, w) => " ".repeat(Math.max(0, w - s.length)) + s;
-    const cw = 6;
+    const strW = (s) => [...s].reduce((w, c) => w + (c.charCodeAt(0) > 0x7f ? 2 : 1), 0);
+    const padr = (s, w) => " ".repeat(Math.max(0, w - strW(s))) + s;
+    const maxW = Math.max(...sorted.map(p => strW(p.name)), strW("玩家"), strW("驗算"));
+    const padName = (s) => s + " ".repeat(Math.max(0, maxW - strW(s)));
+    const cw = 7;
     let txt = "♠ 今日戰績（共 " + rds.length + " 局）\n";
-    txt += pad("玩家", maxName);
+    txt += padName("玩家");
     rds.forEach((_, i) => { txt += padr("R" + (i + 1), cw); });
     txt += padr("小計", cw) + "\n";
     sorted.forEach(pl => {
-      txt += pad(pl.name, maxName);
+      txt += padName(pl.name);
       pl.perRound.forEach(v => { txt += padr(v === null ? "" : String(v), cw); });
       txt += padr(String(pl.total), cw) + "\n";
     });
-    txt += pad("驗算", maxName);
+    txt += padName("驗算");
     rds.forEach(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); txt += padr(String(t), cw); });
     txt += padr("0", cw);
     return txt;
@@ -113,11 +123,11 @@ function App() {
     const txt = generateSummaryText(rds);
     try {
       await navigator.clipboard.writeText(txt);
-      setToast("✅ 已複製戰績");
+      setToast("success");
     } catch {
-      setToast("❌ 複製失敗");
+      setToast("error");
     }
-    setTimeout(() => setToast(""), 2500);
+    setTimeout(() => setToast(""), 2000);
   };
 
   const [chipRate, setChipRate] = useState(() => {
@@ -338,7 +348,7 @@ function App() {
           {clubMembers.length > 0 && (
             <div style={S.card}>
               <div style={S.section}>成員列表（{clubMembers.length}人）</div>
-              {[...clubMembers].sort((a, b) => a.name.localeCompare(b.name, "zh-TW")).map((m, i) => (
+              {[...clubMembers].sort((a, b) => nameSort(a.name, b.name)).map((m, i) => (
                 <div key={m.id} style={S.row}>
                   <span style={{ color: theme.textDim, fontSize: "12px", width: "20px", textAlign: "center" }}>{i + 1}</span>
                   {editId === m.id ? (<>
@@ -364,7 +374,7 @@ function App() {
           </div>
           <div style={S.card}>
             <div style={S.section}>勾選參加的玩家（{selectedIds.length}人）</div>
-            {[...clubMembers].sort((a, b) => a.name.localeCompare(b.name, "zh-TW")).map(m => {
+            {[...clubMembers].sort((a, b) => nameSort(a.name, b.name)).map(m => {
               const ck = selectedIds.includes(m.id);
               return (
                 <div key={m.id} onClick={() => toggleSelect(m.id)} style={{ ...S.row, cursor: "pointer", border: ck ? `2px solid ${theme.accent}` : "2px solid transparent", background: ck ? "rgba(46,204,113,0.1)" : theme.cardAlt }}>
@@ -435,7 +445,7 @@ function App() {
               </div>
             ))}
             {(() => {
-              const avail = clubMembers.filter(m => !currentRound.players.some(p => p.id === m.id)).sort((a, b) => a.name.localeCompare(b.name, "zh-TW"));
+              const avail = clubMembers.filter(m => !currentRound.players.some(p => p.id === m.id)).sort((a, b) => nameSort(a.name, b.name));
               return (
                 <details style={{ marginTop: "8px" }}>
                   <summary style={{ cursor: "pointer", fontSize: "13px", color: theme.accent, fontWeight: 600, padding: "8px 0", listStyle: "none", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -608,7 +618,7 @@ function App() {
               const fee = venueFee ? roundsPlayed * VENUE_FEE_PER_ROUND : 0;
               return { ...pl, total: roundProfit - fee, fee, roundsPlayed };
             });
-            const sorted = [...pt].sort((a, b) => a.name.localeCompare(b.name, "zh-TW"));
+            const sorted = [...pt].sort((a, b) => nameSort(a.name, b.name));
             const totalFee = sorted.reduce((a, p) => a + p.fee, 0);
             const cb = `1px solid ${theme.border}55`, hBg = "#0d1a14", cp = "4px 5px";
 
@@ -685,7 +695,11 @@ function App() {
         </>)}
 
         {toast && (
-          <div style={{ position: "fixed", bottom: "30px", left: "50%", transform: "translateX(-50%)", padding: "10px 20px", borderRadius: "8px", background: "#2ecc71", color: "#fff", fontSize: "14px", fontWeight: 600, zIndex: 100, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>{toast}</div>
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", padding: "24px 32px", borderRadius: "16px", background: "rgba(0,0,0,0.9)", color: "#fff", textAlign: "center", zIndex: 100, boxShadow: "0 8px 32px rgba(0,0,0,0.5)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
+            <div style={{ fontSize: "32px", marginBottom: "8px" }}>{toast === "success" ? "📋" : "❌"}</div>
+            <div style={{ fontSize: "16px", fontWeight: 700, marginBottom: "4px" }}>{toast === "success" ? "已複製戰績" : "複製失敗"}</div>
+            {toast === "success" && <div style={{ fontSize: "13px", color: "#aaa" }}>可直接貼到 LINE 上</div>}
+          </div>
         )}
       </div>
     </div>
