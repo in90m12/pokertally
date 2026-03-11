@@ -221,7 +221,7 @@ function App() {
     if (currentRound && !confirm("目前有進行中的牌局，確定要放棄並開始新局嗎？")) return;
     const sel = clubMembers.filter(m => selectedIds.includes(m.id));
     const rd = { id: rounds.length + 1, players: sel.map(p => ({ ...p, rebuys: 0, finalChips: "", active: true })), settled: false };
-    setCurrentRound(rd); setView("round");
+    setCurrentRound(rd); setSeatResult(null); setSeatDealers([]); setEditingRoundIdx(null); setView("round");
   };
 
 
@@ -260,6 +260,7 @@ function App() {
       if (!confirm("匯入會覆蓋目前的牌局紀錄，確定嗎？")) return;
       setRounds(data.rounds);
       setCurrentRound(data.currentRound || null);
+      setEditingRoundIdx(null);
       setView(data.currentRound ? "round" : data.rounds.length > 0 ? "summary" : "club");
       setShowImport(false); setImportText("");
       setToast("imported"); setTimeout(() => setToast(""), 2000);
@@ -277,6 +278,16 @@ function App() {
   };
 
   const setFinalChips = (pid, val) => setCurrentRound(r => ({ ...r, players: r.players.map(p => p.id === pid ? { ...p, finalChips: val } : p) }));
+  const [editingRoundIdx, setEditingRoundIdx] = useState(null);
+
+  const editRound = (idx) => {
+    if (currentRound && !confirm("目前有進行中的牌局，確定要放棄並修改第 " + (idx + 1) + " 局嗎？")) return;
+    const r = rounds[idx];
+    const editable = { ...r, settled: false, players: r.players.map(p => ({ ...p, finalChips: String(p.finalChips || 0) })) };
+    setCurrentRound(editable);
+    setEditingRoundIdx(idx);
+    setView("round");
+  };
 
   const ap = currentRound ? currentRound.players.filter(p => p.active) : [];
   const totalPool = ap.reduce((s, p) => s + (1 + p.rebuys) * buyInChips, 0);
@@ -291,11 +302,18 @@ function App() {
       profit: p.active ? ((parseInt(p.finalChips) || 0) - (1 + p.rebuys) * buyInChips) : 0,
       profitCash: p.active ? (((parseInt(p.finalChips) || 0) - (1 + p.rebuys) * buyInChips) / chipRate) : 0,
     }))};
-    const newRounds = [...rounds, settled];
-    setRounds(newRounds); setCurrentRound(null); setView("summary");
+    if (editingRoundIdx !== null) {
+      const updated = [...rounds];
+      updated[editingRoundIdx] = settled;
+      setRounds(updated);
+      setEditingRoundIdx(null);
+    } else {
+      setRounds([...rounds, settled]);
+    }
+    setCurrentRound(null); setView("summary");
   };
 
-  const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setVenueFee(false); try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); } catch {} setView("setup"); };
+  const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setEditingRoundIdx(null); setVenueFee(false); try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); } catch {} setView("setup"); };
 
   // ── Seat Draw ──
   const openSeatDraw = () => { if (!seatResult) { setSeatDealers([]); setSeatAnim(false); } setView("seatDraw"); };
@@ -482,7 +500,7 @@ function App() {
         {view === "round" && currentRound && (<>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
             <div>
-              <h2 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>第 {currentRound.id} 局</h2>
+              <h2 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>{editingRoundIdx !== null ? "✏️ 修改" : ""}第 {currentRound.id} 局</h2>
               <p style={{ color: theme.textDim, fontSize: "13px", margin: "4px 0 0" }}>{ap.length} 人參加 ・ 已加買 {totalRoundRebuys} 次</p>
             </div>
             <button style={S.sm(theme.textDim)} onClick={() => { setCurrentRound(null); setView("setup"); }}>取消此局</button>
@@ -548,7 +566,10 @@ function App() {
           <button
             style={{ ...S.btn(balanced ? theme.accent : theme.textDim), width: "100%", padding: "14px", fontSize: "16px", opacity: balanced ? 1 : 0.5, cursor: balanced ? "pointer" : "not-allowed" }}
             onClick={settleRound} disabled={!balanced}
-          >{balanced ? "✓ 確認結算" : "籌碼尚未平衡"}</button>
+          >{balanced ? (editingRoundIdx !== null ? "✓ 確認修改" : "✓ 確認結算") : "籌碼尚未平衡"}</button>
+          {editingRoundIdx !== null && (
+            <button style={{ ...S.btn(theme.textDim, true), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={() => { setCurrentRound(null); setEditingRoundIdx(null); setView("summary"); }}>取消修改</button>
+          )}
         </>)}
 
         {/* ═══ SEAT DRAW ═══ */}
@@ -706,7 +727,7 @@ function App() {
                     <thead>
                       <tr>
                         <th style={{ padding: cp, paddingLeft: "6px", textAlign: "left", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, position: "sticky", left: 0, zIndex: 3 }}>玩家</th>
-                        {rounds.map(r => <th key={r.id} style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.textDim, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, whiteSpace: "nowrap" }}>{r.id}</th>)}
+                        {rounds.map((r, ri) => <th key={r.id} onClick={() => editRound(ri)} style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.accent, fontWeight: 600, background: hBg, borderBottom: cb, borderRight: cb, whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline" }}>{r.id}</th>)}
                         <th style={{ padding: cp, textAlign: "right", fontSize: "10px", color: theme.gold, fontWeight: 700, background: hBg, borderBottom: cb, whiteSpace: "nowrap" }}>小計</th>
                       </tr>
                     </thead>
