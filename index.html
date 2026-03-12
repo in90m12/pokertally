@@ -114,35 +114,45 @@ function App() {
   const summaryRef = useRef(null);
   const statsRef = useRef(null);
 
-  // ── Hidden Stats ──
+  // ── Hidden Stats (record-based with dates) ──
   const [showStats, setShowStats] = useState(false);
   const [statsSortBy, setStatsSortBy] = useState("avg");
-  const loadStats = () => { try { return JSON.parse(localStorage.getItem("poker-stats")) || {}; } catch { return {}; } };
+  const [statsDateFrom, setStatsDateFrom] = useState("");
+  const [statsDateTo, setStatsDateTo] = useState("");
+  const [showStatsImport, setShowStatsImport] = useState(false);
+  const [statsImportText, setStatsImportText] = useState("");
+  const loadStats = () => { try { return JSON.parse(localStorage.getItem("poker-stats")) || []; } catch { return []; } };
   const saveStats = (s) => { try { localStorage.setItem("poker-stats", JSON.stringify(s)); } catch {} };
+  const todayStr = () => new Date().toISOString().slice(0, 10);
   const accumulateStats = (settledRound) => {
-    const stats = loadStats();
+    const records = loadStats();
+    const date = todayStr();
     settledRound.players.forEach(p => {
       if (!p.active) return;
-      const key = p.name;
-      if (!stats[key]) stats[key] = { totalCash: 0, rounds: 0, sessions: 0 };
-      stats[key].totalCash += p.profitCash;
-      stats[key].rounds += 1;
+      records.push({ date, name: p.name, cash: p.profitCash });
     });
-    // Track session count: increment once per reset cycle
-    const sessionKey = "poker-stats-session";
-    const sessionPlayers = JSON.parse(localStorage.getItem(sessionKey) || "[]");
-    settledRound.players.forEach(p => {
-      if (!p.active) return;
-      if (!sessionPlayers.includes(p.name)) {
-        sessionPlayers.push(p.name);
-        if (!stats[p.name]) stats[p.name] = { totalCash: 0, rounds: 0, sessions: 0 };
-        stats[p.name].sessions += 1;
-      }
-    });
-    localStorage.setItem(sessionKey, JSON.stringify(sessionPlayers));
-    saveStats(stats);
+    saveStats(records);
   };
-  const resetSessionTracker = () => { try { localStorage.removeItem("poker-stats-session"); } catch {} };
+  const removeStatsForRound = (round) => {
+    const records = loadStats();
+    const toRemove = round.players.filter(p => p.active).map(p => ({ name: p.name, cash: p.profitCash }));
+    const updated = [...records];
+    toRemove.forEach(tr => {
+      const idx = updated.findIndex(r => r.name === tr.name && r.cash === tr.cash);
+      if (idx !== -1) updated.splice(idx, 1);
+    });
+    saveStats(updated);
+  };
+  const aggregateStats = (records) => {
+    const map = {};
+    records.forEach(r => {
+      if (!map[r.name]) map[r.name] = { name: r.name, totalCash: 0, rounds: 0, dates: new Set() };
+      map[r.name].totalCash += r.cash;
+      map[r.name].rounds += 1;
+      map[r.name].dates.add(r.date);
+    });
+    return Object.values(map).map(d => ({ ...d, sessions: d.dates.size, avg: d.dates.size > 0 ? Math.round(d.totalCash / d.dates.size) : 0 }));
+  };
 
   const captureAndShare = async (ref, filename) => {
     if (!ref.current) return;
@@ -229,22 +239,37 @@ function App() {
     try { if (currentRound) localStorage.setItem("poker-current", JSON.stringify(currentRound)); else localStorage.removeItem("poker-current"); } catch {}
   }, [currentRound]);
 
-  // Auto-recalculate stats from existing rounds if stats is empty
+  // Auto-migrate old stats format or recalculate from rounds
   useEffect(() => {
+    const raw = localStorage.getItem("poker-stats");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) && typeof parsed === "object") {
+          // Old format: {name: {totalCash, rounds, sessions}} → convert to records with date 2026-03-11
+          const records = [];
+          Object.entries(parsed).forEach(([name, d]) => {
+            for (let i = 0; i < (d.rounds || 1); i++) {
+              records.push({ date: "2026-03-11", name, cash: (d.totalCash || 0) / (d.rounds || 1) });
+            }
+          });
+          saveStats(records);
+          localStorage.removeItem("poker-stats-session");
+        }
+      } catch {}
+      return;
+    }
+    // No stats at all: rebuild from existing rounds
     if (rounds.length === 0) return;
-    const stats = loadStats();
-    if (Object.keys(stats).length > 0) return;
-    const newStats = {};
+    const records = [];
+    const date = todayStr();
     rounds.forEach(r => {
       r.players.forEach(p => {
         if (!p.active) return;
-        if (!newStats[p.name]) newStats[p.name] = { totalCash: 0, rounds: 0, sessions: 0 };
-        newStats[p.name].totalCash += p.profitCash;
-        newStats[p.name].rounds += 1;
-        newStats[p.name].sessions = 1;
+        records.push({ date, name: p.name, cash: p.profitCash });
       });
     });
-    saveStats(newStats);
+    saveStats(records);
   }, []);
 
   const addMember = () => {
@@ -300,29 +325,17 @@ function App() {
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const exportGameData = async () => {
-    const stats = loadStats();
-    const data = JSON.stringify({ rounds, currentRound, stats, ts: Date.now() });
+    const data = JSON.stringify({ rounds, currentRound, ts: Date.now() });
     try { await navigator.clipboard.writeText(data); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch { setToast("error"); setTimeout(() => setToast(""), 2000); }
   };
   const importGameData = () => {
     try {
       const data = JSON.parse(importText.trim());
       if (!data.rounds || !Array.isArray(data.rounds)) { alert("資料格式錯誤"); return; }
-      if (!confirm("匯入會覆蓋目前的牌局紀錄，並將累積戰績合併，確定嗎？")) return;
+      if (!confirm("匯入會覆蓋目前的牌局紀錄，確定嗎？")) return;
       setRounds(data.rounds);
       setCurrentRound(data.currentRound || null);
       setEditingRoundIdx(null);
-      // Merge stats: add imported stats to existing
-      if (data.stats) {
-        const existing = loadStats();
-        Object.entries(data.stats).forEach(([name, d]) => {
-          if (!existing[name]) existing[name] = { totalCash: 0, rounds: 0, sessions: 0 };
-          existing[name].totalCash += d.totalCash || 0;
-          existing[name].rounds += d.rounds || 0;
-          existing[name].sessions += d.sessions || 0;
-        });
-        saveStats(existing);
-      }
       setView(data.currentRound ? "round" : data.rounds.length > 0 ? "summary" : "club");
       setShowImport(false); setImportText("");
       setToast("imported"); setTimeout(() => setToast(""), 2000);
@@ -365,12 +378,9 @@ function App() {
       profitCash: p.active ? (((parseInt(p.finalChips) || 0) - (1 + p.rebuys) * buyInChips) / chipRate) : 0,
     }))};
     if (editingRoundIdx !== null) {
-      // Subtract old round stats, add new
       const oldRound = rounds[editingRoundIdx];
-      const stats = loadStats();
-      oldRound.players.forEach(p => { if (p.active && stats[p.name]) { stats[p.name].totalCash -= p.profitCash; stats[p.name].rounds -= 1; } });
-      settled.players.forEach(p => { if (p.active) { if (!stats[p.name]) stats[p.name] = { totalCash: 0, rounds: 0, sessions: 0 }; stats[p.name].totalCash += p.profitCash; stats[p.name].rounds += 1; } });
-      saveStats(stats);
+      removeStatsForRound(oldRound);
+      accumulateStats(settled);
       const updated = [...rounds];
       updated[editingRoundIdx] = settled;
       setRounds(updated);
@@ -382,7 +392,7 @@ function App() {
     setCurrentRound(null); setView("summary");
   };
 
-  const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; resetSessionTracker(); setRounds([]); setCurrentRound(null); setEditingRoundIdx(null); setVenueFee(false); try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); } catch {} setView("setup"); };
+  const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setEditingRoundIdx(null); setVenueFee(false); try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); } catch {} setView("setup"); };
 
   // ── Seat Draw ──
   const openSeatDraw = () => { if (!seatResult) { setSeatDealers([]); setSeatAnim(false); } setView("seatDraw"); };
@@ -871,20 +881,34 @@ function App() {
         )}
 
         {showStats && (() => {
-          const stats = loadStats();
-          const entries = Object.entries(stats).map(([name, d]) => ({ name, ...d, avg: d.sessions > 0 ? Math.round(d.totalCash / d.sessions) : 0 }));
+          const allRecords = loadStats();
+          const filtered = allRecords.filter(r => {
+            if (statsDateFrom && r.date < statsDateFrom) return false;
+            if (statsDateTo && r.date > statsDateTo) return false;
+            return true;
+          });
+          const entries = aggregateStats(filtered);
           const sorted = [...entries].sort((a, b) => statsSortBy === "avg" ? b.avg - a.avg : b.totalCash - a.totalCash);
           const tabStyle = (active) => ({ flex: 1, padding: "8px", borderRadius: "8px", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer", background: active ? "#2ecc71" : "transparent", color: active ? "#000" : "#7a8a80" });
+          const hasFilter = statsDateFrom || statsDateTo;
+          const allDates = [...new Set(allRecords.map(r => r.date))].sort();
           return (
             <div className="stats-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 200, overflow: "auto", paddingLeft: "20px", paddingRight: "20px", paddingBottom: "20px" }}>
               <div style={{ maxWidth: "500px", margin: "0 auto" }}>
                 <div ref={statsRef} style={{ background: "#0a0f0d", padding: "16px", borderRadius: "12px" }}>
                   <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "16px" }}>🏆 累積戰績排名</h2>
-                  {!isCapturing && <div style={{ display: "flex", gap: "4px", padding: "3px", background: "#1a1a1a", borderRadius: "10px", marginBottom: "14px" }}>
+                  {!isCapturing && <div style={{ display: "flex", gap: "4px", padding: "3px", background: "#1a1a1a", borderRadius: "10px", marginBottom: "10px" }}>
                     <button style={tabStyle(statsSortBy === "avg")} onClick={() => setStatsSortBy("avg")}>場均排名</button>
                     <button style={tabStyle(statsSortBy === "total")} onClick={() => setStatsSortBy("total")}>總盈虧排名</button>
                   </div>}
-                  {isCapturing && <div style={{ fontSize: "12px", color: "#7a8a80", marginBottom: "10px" }}>依{statsSortBy === "avg" ? "場均" : "總盈虧"}排名</div>}
+                  {isCapturing && <div style={{ fontSize: "12px", color: "#7a8a80", marginBottom: "10px" }}>依{statsSortBy === "avg" ? "場均" : "總盈虧"}排名{hasFilter ? " (" + (statsDateFrom || "起始") + " ~ " + (statsDateTo || "至今") + ")" : ""}</div>}
+                  {!isCapturing && <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "14px", fontSize: "12px" }}>
+                    <input type="date" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} style={{ flex: 1, background: "#1a1a1a", border: "1px solid #333", borderRadius: "6px", color: "#e8e6e3", padding: "6px 8px", fontSize: "12px" }} />
+                    <span style={{ color: "#7a8a80" }}>~</span>
+                    <input type="date" value={statsDateTo} onChange={e => setStatsDateTo(e.target.value)} style={{ flex: 1, background: "#1a1a1a", border: "1px solid #333", borderRadius: "6px", color: "#e8e6e3", padding: "6px 8px", fontSize: "12px" }} />
+                    {hasFilter && <button style={{ background: "transparent", border: "none", color: "#e74c3c", fontSize: "14px", cursor: "pointer", padding: "0 4px" }} onClick={() => { setStatsDateFrom(""); setStatsDateTo(""); }}>✕</button>}
+                  </div>}
+                  {hasFilter && isCapturing && <div style={{ fontSize: "11px", color: "#7a8a80", marginBottom: "8px" }}>{statsDateFrom || "起始"} ~ {statsDateTo || "至今"}</div>}
                   {sorted.length === 0
                     ? <p style={{ color: "#7a8a80", textAlign: "center", padding: "40px 0" }}>尚無累積紀錄</p>
                     : <div style={{ background: "#141e19", border: "1px solid #2a3a30", borderRadius: "10px", overflow: "hidden" }}>
@@ -917,6 +941,32 @@ function App() {
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "#9b59b6", color: "#fff", border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer" }} onClick={shareStatsImage}>📷 分享排名圖</button>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid #555", color: "#aaa", fontSize: "13px", cursor: "pointer" }} onClick={() => setShowStats(false)}>關閉</button>
                 </div>
+                <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                  <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "12px", cursor: "pointer" }} onClick={async () => {
+                    const data = JSON.stringify(loadStats());
+                    try { await navigator.clipboard.writeText(data); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch { setToast("error"); setTimeout(() => setToast(""), 2000); }
+                  }}>📤 匯出排名</button>
+                  <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "12px", cursor: "pointer" }} onClick={() => setShowStatsImport(v => !v)}>📥 匯入排名</button>
+                </div>
+                {showStatsImport && (
+                  <div style={{ marginTop: "8px" }}>
+                    <textarea style={{ width: "100%", height: "70px", background: "#1a1a1a", border: "1px solid #333", borderRadius: "6px", color: "#e8e6e3", fontFamily: "monospace", fontSize: "10px", padding: "6px 8px", resize: "none", outline: "none" }} value={statsImportText} onChange={e => setStatsImportText(e.target.value)} placeholder="貼上匯出的排名資料..." />
+                    <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+                      <button style={{ flex: 1, padding: "8px", borderRadius: "6px", background: theme.accent, color: "#fff", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer" }} onClick={() => {
+                        try {
+                          const imported = JSON.parse(statsImportText.trim());
+                          if (!Array.isArray(imported)) { alert("資料格式錯誤"); return; }
+                          if (!confirm("匯入會將排名資料合併（不覆蓋），確定嗎？")) return;
+                          const existing = loadStats();
+                          saveStats([...existing, ...imported]);
+                          setShowStatsImport(false); setStatsImportText("");
+                          setShowStats(false); setTimeout(() => setShowStats(true), 100);
+                        } catch { alert("資料格式錯誤，請確認貼上的內容"); }
+                      }}>確認匯入</button>
+                      <button style={{ flex: 1, padding: "8px", borderRadius: "6px", background: "transparent", border: "1px solid #555", color: "#aaa", fontSize: "12px", cursor: "pointer" }} onClick={() => { setShowStatsImport(false); setStatsImportText(""); }}>取消</button>
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid #e74c3c44", color: "#e74c3c", fontSize: "12px", cursor: "pointer" }} onClick={() => { if (confirm("確定要清除所有累積戰績？此操作不可復原。")) { localStorage.removeItem("poker-stats"); localStorage.removeItem("poker-stats-session"); setShowStats(false); setTimeout(() => setShowStats(true), 100); } }}>清除所有累積</button>
                 </div>
