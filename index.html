@@ -857,7 +857,7 @@ function App() {
           const sorted = [...entries].sort((a, b) => statsSortBy === "avg" ? b.avg - a.avg : b.totalCash - a.totalCash);
           const tabStyle = (active) => ({ flex: 1, padding: "8px", borderRadius: "8px", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer", background: active ? "#2ecc71" : "transparent", color: active ? "#000" : "#7a8a80" });
           return (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 200, overflow: "auto", padding: "20px", paddingTop: "max(20px, env(safe-area-inset-top, 20px))" }}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 200, overflow: "auto", paddingTop: "max(60px, calc(env(safe-area-inset-top, 20px) + 20px))", paddingLeft: "20px", paddingRight: "20px", paddingBottom: "20px" }}>
               <div style={{ maxWidth: "500px", margin: "0 auto" }}>
                 <div ref={statsRef} style={{ background: "#0a0f0d", padding: "16px", borderRadius: "12px" }}>
                   <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "16px" }}>🏆 累積戰績排名</h2>
