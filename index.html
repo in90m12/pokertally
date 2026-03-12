@@ -229,6 +229,24 @@ function App() {
     try { if (currentRound) localStorage.setItem("poker-current", JSON.stringify(currentRound)); else localStorage.removeItem("poker-current"); } catch {}
   }, [currentRound]);
 
+  // Auto-recalculate stats from existing rounds if stats is empty
+  useEffect(() => {
+    if (rounds.length === 0) return;
+    const stats = loadStats();
+    if (Object.keys(stats).length > 0) return;
+    const newStats = {};
+    rounds.forEach(r => {
+      r.players.forEach(p => {
+        if (!p.active) return;
+        if (!newStats[p.name]) newStats[p.name] = { totalCash: 0, rounds: 0, sessions: 0 };
+        newStats[p.name].totalCash += p.profitCash;
+        newStats[p.name].rounds += 1;
+        newStats[p.name].sessions = 1;
+      });
+    });
+    saveStats(newStats);
+  }, []);
+
   const addMember = () => {
     const n = newName.trim();
     if (!n) return;
