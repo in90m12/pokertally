@@ -121,7 +121,7 @@ function App() {
     secretTap.current.count++;
     if (secretTap.current.timer) clearTimeout(secretTap.current.timer);
     if (secretTap.current.count >= 3) { secretTap.current.count = 0; setShowStats(true); return; }
-    secretTap.current.timer = setTimeout(() => { secretTap.current.count = 0; }, 1500);
+    secretTap.current.timer = setTimeout(() => { secretTap.current.count = 0; }, 2000);
   };
   const loadStats = () => { try { return JSON.parse(localStorage.getItem("poker-stats")) || {}; } catch { return {}; } };
   const saveStats = (s) => { try { localStorage.setItem("poker-stats", JSON.stringify(s)); } catch {} };
@@ -401,7 +401,7 @@ function App() {
       {/* Top bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", paddingTop: "max(16px, env(safe-area-inset-top, 16px))", borderBottom: `1px solid ${theme.border}`, background: "rgba(10,15,13,0.8)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "18px", fontWeight: 700, letterSpacing: "1px" }}>
-          <span style={{ fontSize: "24px" }}>♠</span><span onClick={handleTitleTap} style={{ cursor: "default", userSelect: "none", WebkitUserSelect: "none" }}>德州撲克結算器</span>
+          <span style={{ fontSize: "24px" }}>♠</span><span onClick={handleTitleTap} onTouchEnd={(e) => { e.preventDefault(); handleTitleTap(); }} style={{ cursor: "default", userSelect: "none", WebkitUserSelect: "none", touchAction: "manipulation", padding: "4px 0" }}>德州撲克結算器</span>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           {rounds.length > 0 && <span style={S.badge(theme.accent)}>已完成 {rounds.length} 局</span>}
