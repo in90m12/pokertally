@@ -31,9 +31,9 @@ const DEFAULT_BUY_IN_CASH = 500;
 
 // ── 內建預設名單（在這裡修改）──
 const PRESET_MEMBERS = [
-  "Charlie", "Frank", "Harry", "Jimmy", "Marcus", "Morse",
+  "Frank", "Harry", "Jimmy", "Marcus", "Morse",
   "上豪", "大頭", "濬紘", "小柏", "小wei", "文文",
-  "牙醫Mike", "阿元", "阿文", "葳葳", "賈丁", "銀行Mike", "慶慶",
+  "牙醫Mike", "阿元", "阿文", "葳葳", "賈丁", "銀行Mike", "慶慶", "查理",
 ];
 
 function formatChips(n) { return n.toLocaleString(); }
@@ -304,6 +304,19 @@ function App() {
     setCurrentRound(r => ({
       ...r, players: [...r.players, { ...member, rebuys: 0, finalChips: "", active: true }]
     }));
+    // Assign random empty seat if seat draw already happened
+    if (seatResult) {
+      const taken = seatResult.seats.map(s => s.seat);
+      const allSeats = [1,2,3,4,5,6,7,8,9,10];
+      const empty = allSeats.filter(s => !taken.includes(s));
+      if (empty.length > 0) {
+        const seat = empty[Math.floor(Math.random() * empty.length)];
+        setSeatResult(prev => ({
+          seats: [...prev.seats, { seat, player: member, isDealer: false, isButton: false }].sort((a, b) => a.seat - b.seat)
+        }));
+        alert(member.name + " 分配到座位 " + seat + " 號");
+      }
+    }
   };
   const [midRoundNewName, setMidRoundNewName] = useState("");
   const addNewPlayerMidRound = () => {
@@ -319,6 +332,9 @@ function App() {
   const removePlayerMidRound = (pid) => {
     if (!confirm("確定要移除此玩家？")) return;
     setCurrentRound(r => ({ ...r, players: r.players.filter(p => p.id !== pid) }));
+    if (seatResult) {
+      setSeatResult(prev => ({ seats: prev.seats.filter(s => s.player.id !== pid) }));
+    }
   };
 
   // ── Transfer (export/import game data) ──
@@ -389,7 +405,7 @@ function App() {
       accumulateStats(settled);
       setRounds([...rounds, settled]);
     }
-    setCurrentRound(null); setView("summary");
+    setCurrentRound(null); setSelectedIds(settled.players.filter(p => p.active).map(p => p.id)); setView("summary");
   };
 
   const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setEditingRoundIdx(null); setVenueFee(false); try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); } catch {} setView("setup"); };
