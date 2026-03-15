@@ -113,6 +113,7 @@ function App() {
   const [isCapturing, setIsCapturing] = useState(false);
   const summaryRef = useRef(null);
   const statsRef = useRef(null);
+  const seatRef = useRef(null);
 
   // ── Hidden Stats (record-based with dates) ──
   const [showStats, setShowStats] = useState(false);
@@ -202,6 +203,7 @@ function App() {
   };
   const shareImage = () => captureAndShare(summaryRef, "poker-result.png");
   const shareStatsImage = () => captureAndShare(statsRef, "poker-stats.png");
+  const shareSeatImage = () => captureAndShare(seatRef, "poker-seats.png");
 
 
   const [chipRate, setChipRate] = useState(() => {
@@ -706,6 +708,7 @@ function App() {
           )}
 
           {seatResult && !seatAnim && (<>
+            <div ref={seatRef} style={{ background: "#0a0f0d", padding: "4px 0" }}>
             {/* ── Oval poker table ── */}
             <div style={S.card}>
               <div style={S.section}>座位結果</div>
@@ -723,10 +726,8 @@ function App() {
                 }} />
 
                 {seatResult.seats.map((entry) => {
-                  // Seat 5 at top center, seat 10 at bottom center, clockwise
                   const seatOrder = entry.seat >= 5 ? entry.seat - 5 : entry.seat + 5;
                   const angle = (seatOrder / 10) * Math.PI * 2 - Math.PI / 2;
-                  // Wide oval
                   const rx = 45;
                   const ry = 38;
                   const cx = 50 + rx * Math.cos(angle);
@@ -770,7 +771,9 @@ function App() {
                 </div>
               ))}
             </div>
+            </div>
 
+            <button style={{ ...S.btn("#9b59b6"), width: "100%", padding: "10px", fontSize: "13px", marginBottom: "10px" }} onClick={shareSeatImage}>📷 分享座位表</button>
             <div style={{ display: "flex", gap: "10px" }}>
               <button style={{ ...S.btn(theme.purple, true), flex: 1, padding: "12px" }} onClick={() => { setSeatResult(null); setSeatDealers([]); }}>重新抽位</button>
               <button style={{ ...S.btn(theme.accent), flex: 1, padding: "12px" }} onClick={() => setView("round")}>返回牌局</button>
