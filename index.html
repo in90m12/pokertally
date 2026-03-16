@@ -106,7 +106,9 @@ function App() {
   });
 
   const [seatDealers, setSeatDealers] = useState([]);
-  const [seatResult, setSeatResult] = useState(null);
+  const [seatResult, setSeatResult] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("poker-seats")); } catch { return null; }
+  });
   const [seatAnim, setSeatAnim] = useState(false);
   const [venueFee, setVenueFee] = useState(false);
   const [toast, setToast] = useState("");
@@ -125,9 +127,17 @@ function App() {
   const loadStats = () => { try { return JSON.parse(localStorage.getItem("poker-stats")) || []; } catch { return []; } };
   const saveStats = (s) => { try { localStorage.setItem("poker-stats", JSON.stringify(s)); } catch {} };
   const todayStr = () => new Date().toISOString().slice(0, 10);
+  const sessionDate = useRef(localStorage.getItem("poker-session-date") || "");
+  const getSessionDate = () => {
+    if (!sessionDate.current) {
+      sessionDate.current = todayStr();
+      localStorage.setItem("poker-session-date", sessionDate.current);
+    }
+    return sessionDate.current;
+  };
   const accumulateStats = (settledRound) => {
     const records = loadStats();
-    const date = todayStr();
+    const date = getSessionDate();
     settledRound.players.forEach(p => {
       if (!p.active) return;
       records.push({ date, name: p.name, cash: p.profitCash });
@@ -240,38 +250,28 @@ function App() {
   useEffect(() => {
     try { if (currentRound) localStorage.setItem("poker-current", JSON.stringify(currentRound)); else localStorage.removeItem("poker-current"); } catch {}
   }, [currentRound]);
+  useEffect(() => {
+    try { if (seatResult) localStorage.setItem("poker-seats", JSON.stringify(seatResult)); else localStorage.removeItem("poker-seats"); } catch {}
+  }, [seatResult]);
 
-  // Auto-migrate old stats format or recalculate from rounds
+  // Auto-migrate old stats format only
   useEffect(() => {
     const raw = localStorage.getItem("poker-stats");
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed) && typeof parsed === "object") {
-          // Old format: {name: {totalCash, rounds, sessions}} → convert to records with date 2026-03-11
-          const records = [];
-          Object.entries(parsed).forEach(([name, d]) => {
-            for (let i = 0; i < (d.rounds || 1); i++) {
-              records.push({ date: "2026-03-11", name, cash: (d.totalCash || 0) / (d.rounds || 1) });
-            }
-          });
-          saveStats(records);
-          localStorage.removeItem("poker-stats-session");
-        }
-      } catch {}
-      return;
-    }
-    // No stats at all: rebuild from existing rounds
-    if (rounds.length === 0) return;
-    const records = [];
-    const date = todayStr();
-    rounds.forEach(r => {
-      r.players.forEach(p => {
-        if (!p.active) return;
-        records.push({ date, name: p.name, cash: p.profitCash });
-      });
-    });
-    saveStats(records);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) && typeof parsed === "object") {
+        // Old format: {name: {totalCash, rounds, sessions}} → convert to records with date 2026-03-11
+        const records = [];
+        Object.entries(parsed).forEach(([name, d]) => {
+          for (let i = 0; i < (d.rounds || 1); i++) {
+            records.push({ date: "2026-03-11", name, cash: (d.totalCash || 0) / (d.rounds || 1) });
+          }
+        });
+        saveStats(records);
+        localStorage.removeItem("poker-stats-session");
+      }
+    } catch {}
   }, []);
 
   const addMember = () => {
@@ -296,6 +296,10 @@ function App() {
 
   const startNewRound = () => {
     if (currentRound && !confirm("目前有進行中的牌局，確定要放棄並開始新局嗎？")) return;
+    if (rounds.length === 0) {
+      sessionDate.current = todayStr();
+      localStorage.setItem("poker-session-date", sessionDate.current);
+    }
     const sel = clubMembers.filter(m => selectedIds.includes(m.id));
     const rd = { id: rounds.length + 1, players: sel.map(p => ({ ...p, rebuys: 0, finalChips: "", active: true })), settled: false };
     setCurrentRound(rd); setSeatResult(null); setSeatDealers([]); setEditingRoundIdx(null); setView("round");
@@ -406,11 +410,12 @@ function App() {
     } else {
       accumulateStats(settled);
       setRounds([...rounds, settled]);
+      setSelectedIds(settled.players.filter(p => p.active).map(p => p.id));
     }
-    setCurrentRound(null); setSelectedIds(settled.players.filter(p => p.active).map(p => p.id)); setView("summary");
+    setCurrentRound(null); setView("summary");
   };
 
-  const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setEditingRoundIdx(null); setVenueFee(false); try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); } catch {} setView("setup"); };
+  const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setSeatResult(null); setSeatDealers([]); setEditingRoundIdx(null); setVenueFee(false); sessionDate.current = ""; try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); localStorage.removeItem("poker-seats"); localStorage.removeItem("poker-session-date"); } catch {} setView("setup"); };
 
   // ── Seat Draw ──
   const openSeatDraw = () => { if (!seatResult) { setSeatDealers([]); setSeatAnim(false); } setView("seatDraw"); };
