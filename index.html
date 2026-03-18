@@ -96,18 +96,18 @@ function App() {
 
   const [selectedIds, setSelectedIds] = useState([]);
   const [rounds, setRounds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("poker-rounds")) || []; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem("poker-rounds")) || []; } catch(e) { return []; }
   });
   const [currentRound, setCurrentRound] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("poker-current")); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem("poker-current")); } catch(e) { return null; }
   });
   const [view, setView] = useState(() => {
-    try { const cr = JSON.parse(localStorage.getItem("poker-current")); const rds = JSON.parse(localStorage.getItem("poker-rounds")); return cr ? "round" : (rds && rds.length > 0 ? "summary" : "club"); } catch { return "club"; }
+    try { const cr = JSON.parse(localStorage.getItem("poker-current")); const rds = JSON.parse(localStorage.getItem("poker-rounds")); return cr ? "round" : (rds && rds.length > 0 ? "summary" : "club"); } catch(e) { return "club"; }
   });
 
   const [seatDealers, setSeatDealers] = useState([]);
   const [seatResult, setSeatResult] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("poker-seats")); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem("poker-seats")); } catch(e) { return null; }
   });
   const [seatAnim, setSeatAnim] = useState(false);
   const [venueFee, setVenueFee] = useState(false);
@@ -124,8 +124,8 @@ function App() {
   const [statsDateTo, setStatsDateTo] = useState("");
   const [showStatsImport, setShowStatsImport] = useState(false);
   const [statsImportText, setStatsImportText] = useState("");
-  const loadStats = () => { try { return JSON.parse(localStorage.getItem("poker-stats")) || []; } catch { return []; } };
-  const saveStats = (s) => { try { localStorage.setItem("poker-stats", JSON.stringify(s)); } catch {} };
+  const loadStats = () => { try { return JSON.parse(localStorage.getItem("poker-stats")) || []; } catch(e) { return []; } };
+  const saveStats = (s) => { try { localStorage.setItem("poker-stats", JSON.stringify(s)); } catch(e) {} };
   const todayStr = () => new Date().toISOString().slice(0, 10);
   const sessionDate = useRef(localStorage.getItem("poker-session-date") || "");
   const getSessionDate = () => {
@@ -217,17 +217,17 @@ function App() {
 
 
   const [chipRate, setChipRate] = useState(() => {
-    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.chipRate || DEFAULT_CHIP_RATE; } catch { return DEFAULT_CHIP_RATE; }
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.chipRate || DEFAULT_CHIP_RATE; } catch(e) { return DEFAULT_CHIP_RATE; }
   });
   const [buyInCash, setBuyInCash] = useState(() => {
-    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.buyInCash || DEFAULT_BUY_IN_CASH; } catch { return DEFAULT_BUY_IN_CASH; }
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.buyInCash || DEFAULT_BUY_IN_CASH; } catch(e) { return DEFAULT_BUY_IN_CASH; }
   });
   const [venueFeeAmt, setVenueFeeAmt] = useState(() => {
-    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeAmt || 10; } catch { return 10; }
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeAmt || 10; } catch(e) { return 10; }
   });
   const buyInChips = buyInCash * chipRate;
   const saveSettings = (rate, cash, fee) => {
-    try { localStorage.setItem("poker-settings", JSON.stringify({ chipRate: rate, buyInCash: cash, venueFeeAmt: fee })); } catch {}
+    try { localStorage.setItem("poker-settings", JSON.stringify({ chipRate: rate, buyInCash: cash, venueFeeAmt: fee })); } catch(e) {}
   };
 
   useEffect(() => {
@@ -235,23 +235,23 @@ function App() {
       const d = JSON.parse(localStorage.getItem("poker-club"));
       if (d) { setClubMembers(d.members || []); nextId.current = d.nextId || 1; }
       else if (PRESET_MEMBERS.length > 0) { setShowPresetPrompt(true); }
-    } catch {}
+    } catch(e) {}
     setClubLoaded(true);
   }, []);
 
   const saveClub = (members, nid) => {
-    try { localStorage.setItem("poker-club", JSON.stringify({ members, nextId: nid })); } catch {}
+    try { localStorage.setItem("poker-club", JSON.stringify({ members, nextId: nid })); } catch(e) {}
   };
 
   // ── Persist game state ──
   useEffect(() => {
-    try { localStorage.setItem("poker-rounds", JSON.stringify(rounds)); } catch {}
+    try { localStorage.setItem("poker-rounds", JSON.stringify(rounds)); } catch(e) {}
   }, [rounds]);
   useEffect(() => {
-    try { if (currentRound) localStorage.setItem("poker-current", JSON.stringify(currentRound)); else localStorage.removeItem("poker-current"); } catch {}
+    try { if (currentRound) localStorage.setItem("poker-current", JSON.stringify(currentRound)); else localStorage.removeItem("poker-current"); } catch(e) {}
   }, [currentRound]);
   useEffect(() => {
-    try { if (seatResult) localStorage.setItem("poker-seats", JSON.stringify(seatResult)); else localStorage.removeItem("poker-seats"); } catch {}
+    try { if (seatResult) localStorage.setItem("poker-seats", JSON.stringify(seatResult)); else localStorage.removeItem("poker-seats"); } catch(e) {}
   }, [seatResult]);
 
   // Auto-migrate old stats format only
@@ -271,7 +271,7 @@ function App() {
         saveStats(records);
         localStorage.removeItem("poker-stats-session");
       }
-    } catch {}
+    } catch(e) {}
   }, []);
 
   const addMember = () => {
@@ -348,7 +348,7 @@ function App() {
   const [importText, setImportText] = useState("");
   const exportGameData = async () => {
     const data = JSON.stringify({ rounds, currentRound, ts: Date.now() });
-    try { await navigator.clipboard.writeText(data); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch { setToast("error"); setTimeout(() => setToast(""), 2000); }
+    try { await navigator.clipboard.writeText(data); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
   };
   const importGameData = () => {
     try {
@@ -361,7 +361,7 @@ function App() {
       setView(data.currentRound ? "round" : data.rounds.length > 0 ? "summary" : "club");
       setShowImport(false); setImportText("");
       setToast("imported"); setTimeout(() => setToast(""), 2000);
-    } catch { alert("資料格式錯誤，請確認貼上的內容"); }
+    } catch(e) { alert("資料格式錯誤，請確認貼上的內容"); }
   };
 
   const totalRoundRebuys = currentRound ? currentRound.players.filter(p => p.active).reduce((s, p) => s + p.rebuys, 0) : 0;
@@ -415,7 +415,7 @@ function App() {
     setCurrentRound(null); setView("summary");
   };
 
-  const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setSeatResult(null); setSeatDealers([]); setEditingRoundIdx(null); setVenueFee(false); sessionDate.current = ""; try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); localStorage.removeItem("poker-seats"); localStorage.removeItem("poker-session-date"); } catch {} setView("setup"); };
+  const resetAll = () => { if (!confirm("確定要重置所有紀錄嗎？")) return; setRounds([]); setCurrentRound(null); setSeatResult(null); setSeatDealers([]); setEditingRoundIdx(null); setVenueFee(false); sessionDate.current = ""; try { localStorage.removeItem("poker-rounds"); localStorage.removeItem("poker-current"); localStorage.removeItem("poker-seats"); localStorage.removeItem("poker-session-date"); } catch(e) {} setView("setup"); };
 
   // ── Seat Draw ──
   const openSeatDraw = () => { if (!seatResult) { setSeatDealers([]); setSeatAnim(false); } setView("seatDraw"); };
@@ -967,7 +967,7 @@ function App() {
                 </div>
                 <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "12px", cursor: "pointer" }} onClick={async () => {
-                    try { await navigator.clipboard.writeText(JSON.stringify(loadStats())); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch { setToast("error"); setTimeout(() => setToast(""), 2000); }
+                    try { await navigator.clipboard.writeText(JSON.stringify(loadStats())); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
                   }}>📤 匯出排名</button>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "12px", cursor: "pointer" }} onClick={() => setShowStatsImport(v => !v)}>📥 匯入排名</button>
                 </div>
@@ -984,7 +984,7 @@ function App() {
                           saveStats([...existing, ...imported]);
                           setShowStatsImport(false); setStatsImportText("");
                           setShowStats(false); setTimeout(() => setShowStats(true), 100);
-                        } catch { alert("資料格式錯誤，請確認貼上的內容"); }
+                        } catch(e) { alert("資料格式錯誤，請確認貼上的內容"); }
                       }}>確認匯入</button>
                       <button style={{ flex: 1, padding: "8px", borderRadius: "6px", background: "transparent", border: "1px solid #555", color: "#aaa", fontSize: "12px", cursor: "pointer" }} onClick={() => { setShowStatsImport(false); setStatsImportText(""); }}>取消</button>
                     </div>
