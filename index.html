@@ -990,7 +990,6 @@ function App() {
                     </div>
                   </div>
                 )}
-                </div>
                 <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid #e74c3c44", color: "#e74c3c", fontSize: "12px", cursor: "pointer" }} onClick={() => { if (confirm("確定要清除所有累積戰績？此操作不可復原。")) { localStorage.removeItem("poker-stats"); localStorage.removeItem("poker-stats-session"); setShowStats(false); setTimeout(() => setShowStats(true), 100); } }}>清除所有累積</button>
                 </div>
