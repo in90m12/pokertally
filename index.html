@@ -364,10 +364,17 @@ function App() {
 
   // ── Transfer (export/import game data) ──
   // ── Compress/Decompress helpers ──
-  const compress = (json) => "LZ:" + LZString.compressToBase64(json);
+  const compress = (json) => "LZ:" + LZString.compressToEncodedURIComponent(json).replace(/\+/g, "_");
   const decompress = (text) => {
     const t = text.trim();
-    if (t.startsWith("LZ:")) return LZString.decompressFromBase64(t.slice(3));
+    if (t.startsWith("LZ:")) {
+      const payload = t.slice(3).replace(/_/g, "+");
+      const r1 = LZString.decompressFromEncodedURIComponent(payload);
+      if (r1) return r1;
+      const r2 = LZString.decompressFromBase64(payload);
+      if (r2) return r2;
+      return null;
+    }
     return t;
   };
 
