@@ -122,6 +122,8 @@ function App() {
   const [statsSortBy, setStatsSortBy] = useState("avg");
   const [statsDateFrom, setStatsDateFrom] = useState("");
   const [statsDateTo, setStatsDateTo] = useState("");
+  const [showStatsImport, setShowStatsImport] = useState(false);
+  const [statsImportText, setStatsImportText] = useState("");
   const loadStats = () => { try { return JSON.parse(localStorage.getItem("poker-stats")) || []; } catch { return []; } };
   const saveStats = (s) => { try { localStorage.setItem("poker-stats", JSON.stringify(s)); } catch {} };
   const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -342,32 +344,24 @@ function App() {
   };
 
   // ── Transfer (export/import game data) ──
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
   const exportGameData = async () => {
     const data = JSON.stringify({ rounds, currentRound, ts: Date.now() });
-    const blob = new Blob([data], { type: "application/json" });
-    const file = new File([blob], "poker-game.json", { type: "application/json" });
-    if (navigator.share && navigator.canShare) {
-      try { const sd = { files: [file] }; if (navigator.canShare(sd)) { await navigator.share(sd); return; } } catch (e) { if (e.name === "AbortError") return; }
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "poker-game.json";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    try { await navigator.clipboard.writeText(data); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch { setToast("error"); setTimeout(() => setToast(""), 2000); }
   };
-  const handleImportFile = (file) => {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!data.rounds || !Array.isArray(data.rounds)) { alert("資料格式錯誤"); return; }
-        if (!confirm("匯入會覆蓋目前的牌局紀錄，確定嗎？")) return;
-        setRounds(data.rounds);
-        setCurrentRound(data.currentRound || null);
-        setEditingRoundIdx(null);
-        setView(data.currentRound ? "round" : data.rounds.length > 0 ? "summary" : "club");
-        setToast("imported"); setTimeout(() => setToast(""), 2000);
-      } catch { alert("資料格式錯誤，請確認檔案內容"); }
-    };
-    reader.readAsText(file);
+  const importGameData = () => {
+    try {
+      const data = JSON.parse(importText.trim());
+      if (!data.rounds || !Array.isArray(data.rounds)) { alert("資料格式錯誤"); return; }
+      if (!confirm("匯入會覆蓋目前的牌局紀錄，確定嗎？")) return;
+      setRounds(data.rounds);
+      setCurrentRound(data.currentRound || null);
+      setEditingRoundIdx(null);
+      setView(data.currentRound ? "round" : data.rounds.length > 0 ? "summary" : "club");
+      setShowImport(false); setImportText("");
+      setToast("imported"); setTimeout(() => setToast(""), 2000);
+    } catch { alert("資料格式錯誤，請確認貼上的內容"); }
   };
 
   const totalRoundRebuys = currentRound ? currentRound.players.filter(p => p.active).reduce((s, p) => s + p.rebuys, 0) : 0;
@@ -530,10 +524,17 @@ function App() {
             </summary>
             <div style={{ ...S.card, marginTop: "4px" }}>
               <p style={{ fontSize: "11px", color: theme.textDim, marginBottom: "10px" }}>記錄的人要離開？匯出資料傳給接手的人匯入即可繼續。</p>
-              <button style={{ ...S.btn(theme.accent), width: "100%", padding: "10px", fontSize: "13px", marginBottom: "8px" }} onClick={exportGameData}>📤 匯出牌局檔案</button>
-              <button style={{ ...S.btn(theme.textDim, true), width: "100%", padding: "10px", fontSize: "13px", position: "relative", overflow: "hidden" }} onClick={() => { document.getElementById("game-file-input").click(); }}>📥 匯入牌局檔案
-                <input id="game-file-input" type="file" accept=".json,application/json" style={{ position: "absolute", opacity: 0, width: 0, height: 0 }} onChange={e => { const file = e.target.files[0]; if (file) handleImportFile(file); e.target.value = ""; }} />
-              </button>
+              <button style={{ ...S.btn(theme.accent), width: "100%", padding: "10px", fontSize: "13px", marginBottom: "8px" }} onClick={exportGameData}>📤 匯出（複製到剪貼簿）</button>
+              {!showImport
+                ? <button style={{ ...S.btn(theme.textDim, true), width: "100%", padding: "10px", fontSize: "13px" }} onClick={() => setShowImport(true)}>📥 匯入</button>
+                : <div>
+                    <textarea style={{ ...S.input, width: "100%", height: "80px", fontSize: "11px", fontFamily: "monospace", resize: "none", marginBottom: "6px" }} value={importText} onChange={e => setImportText(e.target.value)} placeholder="貼上匯出的資料..." />
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button style={{ ...S.btn(theme.accent), flex: 1, padding: "8px", fontSize: "13px" }} onClick={importGameData}>確認匯入</button>
+                      <button style={{ ...S.btn(theme.textDim, true), flex: 1, padding: "8px", fontSize: "13px" }} onClick={() => { setShowImport(false); setImportText(""); }}>取消</button>
+                    </div>
+                  </div>
+              }
             </div>
           </details>
 
@@ -966,37 +967,29 @@ function App() {
                 </div>
                 <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "12px", cursor: "pointer" }} onClick={async () => {
-                    const data = JSON.stringify(loadStats());
-                    const blob = new Blob([data], { type: "application/json" });
-                    const file = new File([blob], "poker-stats.json", { type: "application/json" });
-                    if (navigator.share && navigator.canShare) {
-                      try {
-                        const sd = { files: [file] };
-                        if (navigator.canShare(sd)) { await navigator.share(sd); return; }
-                      } catch (e) { if (e.name === "AbortError") return; }
-                    }
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a"); a.href = url; a.download = "poker-stats.json";
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                    try { await navigator.clipboard.writeText(JSON.stringify(loadStats())); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch { setToast("error"); setTimeout(() => setToast(""), 2000); }
                   }}>📤 匯出排名</button>
-                  <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "12px", cursor: "pointer", position: "relative", overflow: "hidden" }} onClick={() => { document.getElementById("stats-file-input").click(); }}>📥 匯入排名
-                    <input id="stats-file-input" type="file" accept=".json,application/json" style={{ position: "absolute", opacity: 0, width: 0, height: 0 }} onChange={e => {
-                      const file = e.target.files[0]; if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
+                  <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "12px", cursor: "pointer" }} onClick={() => setShowStatsImport(v => !v)}>📥 匯入排名</button>
+                </div>
+                {showStatsImport && (
+                  <div style={{ marginTop: "8px" }}>
+                    <textarea style={{ width: "100%", height: "70px", background: "#1a1a1a", border: "1px solid #333", borderRadius: "6px", color: "#e8e6e3", fontFamily: "monospace", fontSize: "10px", padding: "6px 8px", resize: "none", outline: "none" }} value={statsImportText} onChange={e => setStatsImportText(e.target.value)} placeholder="貼上匯出的排名資料..." />
+                    <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+                      <button style={{ flex: 1, padding: "8px", borderRadius: "6px", background: theme.accent, color: "#fff", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer" }} onClick={() => {
                         try {
-                          const imported = JSON.parse(ev.target.result);
+                          const imported = JSON.parse(statsImportText.trim());
                           if (!Array.isArray(imported)) { alert("資料格式錯誤"); return; }
                           if (!confirm("匯入會將排名資料合併（不覆蓋），確定嗎？")) return;
                           const existing = loadStats();
                           saveStats([...existing, ...imported]);
+                          setShowStatsImport(false); setStatsImportText("");
                           setShowStats(false); setTimeout(() => setShowStats(true), 100);
-                        } catch { alert("資料格式錯誤，請確認檔案內容"); }
-                      };
-                      reader.readAsText(file);
-                      e.target.value = "";
-                    }} />
-                  </button>
+                        } catch { alert("資料格式錯誤，請確認貼上的內容"); }
+                      }}>確認匯入</button>
+                      <button style={{ flex: 1, padding: "8px", borderRadius: "6px", background: "transparent", border: "1px solid #555", color: "#aaa", fontSize: "12px", cursor: "pointer" }} onClick={() => { setShowStatsImport(false); setStatsImportText(""); }}>取消</button>
+                    </div>
+                  </div>
+                )}
                 </div>
                 <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid #e74c3c44", color: "#e74c3c", fontSize: "12px", cursor: "pointer" }} onClick={() => { if (confirm("確定要清除所有累積戰績？此操作不可復原。")) { localStorage.removeItem("poker-stats"); localStorage.removeItem("poker-stats-session"); setShowStats(false); setTimeout(() => setShowStats(true), 100); } }}>清除所有累積</button>
