@@ -800,18 +800,6 @@ function App() {
             </div>
             </div>
 
-            <div style={S.card}>
-              <div style={S.section}>座位表</div>
-              {seatResult.seats.map(e => (
-                <div key={e.seat} style={{ ...S.row, background: e.isDealer && e.isButton ? "rgba(155,89,182,0.15)" : e.isButton ? `${theme.gold}15` : e.isDealer ? "rgba(155,89,182,0.1)" : theme.cardAlt, border: e.isDealer && e.isButton ? `1px solid ${theme.gold}44` : e.isButton ? `1px solid ${theme.gold}44` : "1px solid transparent" }}>
-                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: e.isDealer ? theme.purple : "rgba(0,0,0,0.3)", outline: e.isDealer && e.isButton ? `2px solid ${theme.gold}` : "none", outlineOffset: "1px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, color: "#fff", flexShrink: 0 }}>{e.seat}</span>
-                  <span style={{ fontWeight: 600, flex: 1 }}>{e.player.name}</span>
-                  {e.isDealer && <span style={{ ...S.badge(theme.purple), fontSize: "11px" }}>發牌員</span>}
-                  {e.isButton && <span style={{ ...S.badge(theme.gold), fontSize: "11px" }}>🔘 Button</span>}
-                </div>
-              ))}
-            </div>
-
             <button style={{ ...S.btn("#9b59b6"), width: "100%", padding: "10px", fontSize: "13px", marginBottom: "10px" }} onClick={shareSeatImage}>📷 分享座位表</button>
             <div style={{ display: "flex", gap: "10px" }}>
               <button style={{ ...S.btn(theme.purple, true), flex: 1, padding: "12px" }} onClick={() => { setSeatResult(null); setSeatDealers([]); }}>重新抽位</button>
