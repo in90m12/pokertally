@@ -20,7 +20,6 @@ input[type="text"]:focus{border-color:#2ecc71!important}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -363,30 +362,15 @@ function App() {
   };
 
   // ── Transfer (export/import game data) ──
-  // ── Compress/Decompress helpers ──
-  const compress = (json) => "LZ:" + LZString.compressToEncodedURIComponent(json).replace(/\+/g, "_");
-  const decompress = (text) => {
-    const t = text.trim();
-    if (t.startsWith("LZ:")) {
-      const payload = t.slice(3).replace(/_/g, "+");
-      const r1 = LZString.decompressFromEncodedURIComponent(payload);
-      if (r1) return r1;
-      const r2 = LZString.decompressFromBase64(payload);
-      if (r2) return r2;
-      return null;
-    }
-    return t;
-  };
-
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const exportGameData = async () => {
-    const data = compress(JSON.stringify({ rounds, currentRound, ts: Date.now() }));
+    const data = JSON.stringify({ rounds, currentRound, ts: Date.now() });
     try { await navigator.clipboard.writeText(data); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
   };
   const importGameData = () => {
     try {
-      const data = JSON.parse(decompress(importText));
+      const data = JSON.parse(importText.trim());
       if (!data.rounds || !Array.isArray(data.rounds)) { alert("資料格式錯誤"); return; }
       if (!confirm("匯入會覆蓋目前的牌局紀錄，確定嗎？")) return;
       setRounds(data.rounds);
@@ -989,14 +973,14 @@ function App() {
                 </div>
                 <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "11px", cursor: "pointer" }} onClick={async () => {
-                    try { await navigator.clipboard.writeText(compress(JSON.stringify(loadStats()))); localStorage.setItem("poker-stats-last-export", todayStr()); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
+                    try { await navigator.clipboard.writeText(JSON.stringify(loadStats())); localStorage.setItem("poker-stats-last-export", todayStr()); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
                   }}>📤 全部匯出</button>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "11px", cursor: "pointer" }} onClick={async () => {
                     const lastExport = localStorage.getItem("poker-stats-last-export") || "";
                     const all = loadStats();
                     const diff = lastExport ? all.filter(r => r.date > lastExport) : all;
                     if (diff.length === 0) { alert("沒有新的排名資料需要匯出"); return; }
-                    try { await navigator.clipboard.writeText(compress(JSON.stringify(diff))); localStorage.setItem("poker-stats-last-export", todayStr()); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
+                    try { await navigator.clipboard.writeText(JSON.stringify(diff)); localStorage.setItem("poker-stats-last-export", todayStr()); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
                   }}>📤 差異匯出</button>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "11px", cursor: "pointer" }} onClick={() => setShowStatsImport(v => !v)}>📥 匯入</button>
                 </div>
@@ -1007,7 +991,7 @@ function App() {
                     <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
                       <button style={{ flex: 1, padding: "8px", borderRadius: "6px", background: theme.accent, color: "#fff", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer" }} onClick={() => {
                         try {
-                          const imported = JSON.parse(decompress(statsImportText));
+                          const imported = JSON.parse(statsImportText.trim());
                           if (!Array.isArray(imported)) { alert("資料格式錯誤"); return; }
                           if (!confirm("匯入會將排名資料合併（不覆蓋），確定嗎？")) return;
                           const existing = loadStats();
