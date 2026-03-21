@@ -954,55 +954,35 @@ function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {sorted.map((e, i) => (
-                              <tr key={e.name} style={{ background: i % 2 === 0 ? "#141e19" : "#1a2a22" }}>
+                            {sorted.map((e, i) => {
+                              const isOpen = statsDetailPlayer === e.name;
+                              return (<React.Fragment key={e.name}>
+                              <tr style={{ background: i % 2 === 0 ? "#141e19" : "#1a2a22" }}>
                                 <td style={{ padding: "8px 6px", color: i === 0 ? "#f1c40f" : "#7a8a80", fontWeight: 600 }}>{i + 1}</td>
-                                <td style={{ padding: "8px 6px", fontWeight: 600, cursor: "pointer", textDecoration: "underline", textDecorationColor: "#2a3a30" }} onClick={() => setStatsDetailPlayer(e.name)}>{e.name}</td>
+                                <td style={{ padding: "8px 6px", fontWeight: 600, cursor: "pointer", textDecoration: "underline", textDecorationColor: isOpen ? theme.accent : "#2a3a30" }} onClick={() => setStatsDetailPlayer(isOpen ? null : e.name)}>{e.name}</td>
                                 <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: statsSortBy === "avg" ? 700 : 500, fontVariantNumeric: "tabular-nums", color: e.avg > 0 ? "#2ecc71" : e.avg < 0 ? "#e74c3c" : "#7a8a80" }}>{e.avg > 0 ? "+" : ""}{e.avg}</td>
                                 <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: statsSortBy === "total" ? 700 : 500, fontVariantNumeric: "tabular-nums", color: e.totalCash > 0 ? "#2ecc71" : e.totalCash < 0 ? "#e74c3c" : "#7a8a80" }}>{e.totalCash > 0 ? "+" : ""}{e.totalCash}</td>
                                 <td style={{ padding: "8px 6px", textAlign: "right", color: "#7a8a80" }}>{e.sessions}</td>
                               </tr>
-                            ))}
+                              {isOpen && (() => {
+                                const pr = allRecords.filter(r => r.name === e.name).sort((a, b) => a.date.localeCompare(b.date));
+                                return pr.map((r, ri) => (
+                                  <tr key={r.date + ri} style={{ background: "#0d1a14" }}>
+                                    <td style={{ padding: "4px 6px" }}></td>
+                                    <td style={{ padding: "4px 6px", fontSize: "11px", color: "#7a8a80" }}>{r.date.slice(5)}</td>
+                                    <td style={{ padding: "4px 6px", textAlign: "right", fontSize: "11px", fontVariantNumeric: "tabular-nums", color: r.cash > 0 ? "#2ecc71" : r.cash < 0 ? "#e74c3c" : "#7a8a80" }}>{r.cash > 0 ? "+" : ""}{Math.round(r.cash)}</td>
+                                    <td style={{ padding: "4px 6px" }}></td>
+                                    <td style={{ padding: "4px 6px", textAlign: "right", fontSize: "11px", color: "#555" }}>{r.rounds || 1}局</td>
+                                  </tr>
+                                ));
+                              })()}
+                              </React.Fragment>);
+                            })}
                           </tbody>
                         </table>
                       </div>
                   }
                 </div>
-                {statsDetailPlayer && (() => {
-                  const playerRecords = allRecords.filter(r => r.name === statsDetailPlayer).sort((a, b) => a.date.localeCompare(b.date));
-                  const total = playerRecords.reduce((s, r) => s + r.cash, 0);
-                  return (
-                    <div style={{ background: "#141e19", border: "1px solid #2a3a30", borderRadius: "10px", marginTop: "12px", padding: "14px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                        <span style={{ fontSize: "14px", fontWeight: 700 }}>{statsDetailPlayer} 的場次明細</span>
-                        <button style={{ background: "transparent", border: "none", color: "#aaa", fontSize: "14px", cursor: "pointer" }} onClick={() => setStatsDetailPlayer(null)}>✕</button>
-                      </div>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                        <thead>
-                          <tr>
-                            <th style={{ padding: "6px 8px", textAlign: "left", color: "#7a8a80", fontSize: "11px", borderBottom: "1px solid #2a3a30" }}>日期</th>
-                            <th style={{ padding: "6px 8px", textAlign: "right", color: "#7a8a80", fontSize: "11px", borderBottom: "1px solid #2a3a30" }}>盈虧</th>
-                            <th style={{ padding: "6px 8px", textAlign: "right", color: "#7a8a80", fontSize: "11px", borderBottom: "1px solid #2a3a30" }}>局數</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {playerRecords.map((r, i) => (
-                            <tr key={r.date + i}>
-                              <td style={{ padding: "6px 8px", color: "#aaa" }}>{r.date.slice(5)}</td>
-                              <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.cash > 0 ? "#2ecc71" : r.cash < 0 ? "#e74c3c" : "#7a8a80" }}>{r.cash > 0 ? "+" : ""}{Math.round(r.cash)}</td>
-                              <td style={{ padding: "6px 8px", textAlign: "right", color: "#7a8a80" }}>{r.rounds || 1}</td>
-                            </tr>
-                          ))}
-                          <tr style={{ borderTop: "1px solid #2a3a30" }}>
-                            <td style={{ padding: "6px 8px", fontWeight: 700, fontSize: "11px" }}>合計</td>
-                            <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: total > 0 ? "#2ecc71" : total < 0 ? "#e74c3c" : "#7a8a80" }}>{total > 0 ? "+" : ""}{Math.round(total)}</td>
-                            <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#7a8a80" }}>{playerRecords.reduce((s, r) => s + (r.rounds || 1), 0)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })()}
                 <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "#9b59b6", color: "#fff", border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer" }} onClick={shareStatsImage}>📷 分享排名圖</button>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid #555", color: "#aaa", fontSize: "13px", cursor: "pointer" }} onClick={() => { setStatsDetailPlayer(null); setShowStats(false); }}>關閉</button>
