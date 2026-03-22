@@ -119,7 +119,7 @@ function App() {
 
   // ── Hidden Stats (record-based with dates) ──
   const [showStats, setShowStats] = useState(false);
-  const [statsSortBy, setStatsSortBy] = useState("avg");
+  const [statsSortBy, setStatsSortBy] = useState("total");
   const [statsDateFrom, setStatsDateFrom] = useState("");
   const [statsDateTo, setStatsDateTo] = useState("");
   const [showStatsImport, setShowStatsImport] = useState(false);
@@ -373,10 +373,27 @@ function App() {
     try {
       const data = JSON.parse(importText.trim());
       if (!data.rounds || !Array.isArray(data.rounds)) { alert("資料格式錯誤"); return; }
-      if (!confirm("匯入會覆蓋目前的牌局紀錄，確定嗎？")) return;
+      if (!confirm("匯入會覆蓋目前的牌局紀錄，並將戰績累加到排名，確定嗎？")) return;
       setRounds(data.rounds);
       setCurrentRound(data.currentRound || null);
       setEditingRoundIdx(null);
+      // Auto-accumulate stats from imported rounds
+      const date = getSessionDate();
+      const records = loadStats();
+      data.rounds.forEach(r => {
+        if (!r.settled) return;
+        r.players.forEach(p => {
+          if (!p.active) return;
+          const idx = records.findIndex(rec => rec.date === date && rec.name === p.name);
+          if (idx !== -1) {
+            records[idx].cash += p.profitCash;
+            records[idx].rounds = (records[idx].rounds || 1) + 1;
+          } else {
+            records.push({ date, name: p.name, cash: p.profitCash, rounds: 1 });
+          }
+        });
+      });
+      saveStats(records);
       setView(data.currentRound ? "round" : data.rounds.length > 0 ? "summary" : "club");
       setShowImport(false); setImportText("");
       setToast("imported"); setTimeout(() => setToast(""), 2000);
@@ -596,6 +613,12 @@ function App() {
             <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>牌局設定</h2>
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>買入 {formatCash(buyInCash)} / {formatChips(buyInChips)} 籌碼</p>
           </div>
+          {rounds.length > 0 && (
+            <button
+              style={{ ...S.btn(selectedIds.length >= 2 ? theme.accent : theme.textDim), width: "100%", padding: "14px", fontSize: "16px", opacity: selectedIds.length >= 2 ? 1 : 0.5, cursor: selectedIds.length >= 2 ? "pointer" : "not-allowed", marginBottom: "16px" }}
+              onClick={startNewRound} disabled={selectedIds.length < 2}
+            >♠ 開始第 {rounds.length + 1} 局（{selectedIds.length} 人）</button>
+          )}
           <div style={S.card}>
             <div style={S.section}>勾選參加的玩家（{selectedIds.length}人）</div>
             {[...clubMembers].sort((a, b) => nameSort(a.name, b.name)).map(m => {
@@ -608,10 +631,12 @@ function App() {
               );
             })}
           </div>
-          <button
-            style={{ ...S.btn(selectedIds.length >= 2 ? theme.accent : theme.textDim), width: "100%", padding: "14px", fontSize: "16px", opacity: selectedIds.length >= 2 ? 1 : 0.5, cursor: selectedIds.length >= 2 ? "pointer" : "not-allowed" }}
-            onClick={startNewRound} disabled={selectedIds.length < 2}
-          >♠ 開始第 {rounds.length + 1} 局（{selectedIds.length} 人）</button>
+          {rounds.length === 0 && (
+            <button
+              style={{ ...S.btn(selectedIds.length >= 2 ? theme.accent : theme.textDim), width: "100%", padding: "14px", fontSize: "16px", opacity: selectedIds.length >= 2 ? 1 : 0.5, cursor: selectedIds.length >= 2 ? "pointer" : "not-allowed" }}
+              onClick={startNewRound} disabled={selectedIds.length < 2}
+            >♠ 開始第 1 局（{selectedIds.length} 人）</button>
+          )}
           {rounds.length > 0 && (
             <button style={{ ...S.btn(theme.red, true), width: "100%", marginTop: "10px", padding: "10px", fontSize: "13px" }} onClick={resetAll}>重置所有紀錄</button>
           )}
