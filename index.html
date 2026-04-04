@@ -173,7 +173,7 @@ function App() {
       map[r.name].rounds += (r.rounds || 1);
       map[r.name].dates.add(r.date);
     });
-    return Object.values(map).map(d => ({ ...d, totalCash: Math.round(d.totalCash), sessions: d.dates.size, avg: d.dates.size > 0 ? Math.round(d.totalCash / d.dates.size) : 0 }));
+    return Object.values(map).map(d => ({ ...d, totalCash: Math.round(d.totalCash), sessions: d.dates.size, avg: d.rounds > 0 ? Math.round(d.totalCash / d.rounds) : 0 }));
   };
 
   const captureAndShare = async (ref, filename) => {
@@ -954,10 +954,10 @@ function App() {
                 <div ref={statsRef} style={{ background: "#0a0f0d", padding: "16px", borderRadius: "12px" }}>
                   <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "16px" }}>🏆 累積戰績排名</h2>
                   {!isCapturing && <div style={{ display: "flex", gap: "4px", padding: "3px", background: "#1a1a1a", borderRadius: "10px", marginBottom: "10px" }}>
-                    <button style={tabStyle(statsSortBy === "avg")} onClick={() => setStatsSortBy("avg")}>場均排名</button>
+                    <button style={tabStyle(statsSortBy === "avg")} onClick={() => setStatsSortBy("avg")}>局均排名</button>
                     <button style={tabStyle(statsSortBy === "total")} onClick={() => setStatsSortBy("total")}>總盈虧排名</button>
                   </div>}
-                  {isCapturing && <div style={{ fontSize: "12px", color: "#7a8a80", marginBottom: "10px" }}>依{statsSortBy === "avg" ? "場均" : "總盈虧"}排名{hasFilter ? " (" + (statsDateFrom || "起始") + " ~ " + (statsDateTo || "至今") + ")" : ""}</div>}
+                  {isCapturing && <div style={{ fontSize: "12px", color: "#7a8a80", marginBottom: "10px" }}>依{statsSortBy === "avg" ? "局均" : "總盈虧"}排名{hasFilter ? " (" + (statsDateFrom || "起始") + " ~ " + (statsDateTo || "至今") + ")" : ""}</div>}
                   {!isCapturing && <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "14px", fontSize: "12px" }}>
                     <input type="date" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} style={{ flex: 1, background: "#1a1a1a", border: "1px solid #333", borderRadius: "6px", color: "#e8e6e3", padding: "6px 8px", fontSize: "12px" }} />
                     <span style={{ color: "#7a8a80" }}>~</span>
@@ -973,7 +973,7 @@ function App() {
                             <tr style={{ background: "#0d1a14" }}>
                               <th style={{ padding: "8px 6px", textAlign: "left", color: "#7a8a80", fontWeight: 600, fontSize: "11px" }}>#</th>
                               <th style={{ padding: "8px 6px", textAlign: "left", color: "#7a8a80", fontWeight: 600, fontSize: "11px" }}>玩家</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: statsSortBy === "avg" ? "#f1c40f" : "#7a8a80", fontWeight: 600, fontSize: "11px" }}>場均</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: statsSortBy === "avg" ? "#f1c40f" : "#7a8a80", fontWeight: 600, fontSize: "11px" }}>局均</th>
                               <th style={{ padding: "8px 6px", textAlign: "right", color: statsSortBy === "total" ? "#f1c40f" : "#7a8a80", fontWeight: 600, fontSize: "11px" }}>總計</th>
                               <th style={{ padding: "8px 6px", textAlign: "right", color: "#7a8a80", fontWeight: 600, fontSize: "11px" }}>場次</th>
                             </tr>
