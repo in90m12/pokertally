@@ -117,7 +117,14 @@ function App() {
   const statsRef = useRef(null);
   const seatRef = useRef(null);
 
-  // ── Hidden Stats (record-based with dates) ──
+  // ── Cloud Stats (Supabase) ──
+  const SUPA_URL = "https://yueypworwljlsfkjlyhm.supabase.co/rest/v1";
+  const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1ZXlwd29yd2xqbHNma2pseWhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2OTc2MzUsImV4cCI6MjA5MjI3MzYzNX0._Uf0zVxS379txq4HKYMvq0tmHQOUkinH0ZorhskenKI";
+  const supaFetch = async (path, opts = {}) => {
+    const res = await fetch(SUPA_URL + path, { ...opts, headers: { "apikey": SUPA_KEY, "Authorization": "Bearer " + SUPA_KEY, "Content-Type": "application/json", "Prefer": opts.prefer || "return=minimal", ...(opts.headers || {}) } });
+    if (opts.method === "DELETE" || res.status === 204) return [];
+    return res.json();
+  };
   const [showStats, setShowStats] = useState(false);
   const [statsSortBy, setStatsSortBy] = useState("total");
   const [statsDateFrom, setStatsDateFrom] = useState("");
@@ -125,8 +132,15 @@ function App() {
   const [showStatsImport, setShowStatsImport] = useState(false);
   const [statsImportText, setStatsImportText] = useState("");
   const [statsDetailPlayer, setStatsDetailPlayer] = useState(null);
-  const loadStats = () => { try { return JSON.parse(localStorage.getItem("poker-stats")) || []; } catch(e) { return []; } };
-  const saveStats = (s) => { try { localStorage.setItem("poker-stats", JSON.stringify(s)); } catch(e) {} };
+  const [cloudStats, setCloudStats] = useState([]);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const refreshStats = async () => {
+    try {
+      const data = await supaFetch("/stats?select=id,date,name,cash,rounds&order=date.asc", { prefer: "return=representation" });
+      if (Array.isArray(data)) setCloudStats(data.map(r => ({ ...r, cash: Number(r.cash) })));
+    } catch(e) { console.error("Stats fetch error:", e); }
+  };
+  useEffect(() => { if (showStats) { setStatsLoading(true); refreshStats().finally(() => setStatsLoading(false)); } }, [showStats]);
   const todayStr = () => new Date().toISOString().slice(0, 10);
   const sessionDate = useRef(localStorage.getItem("poker-session-date") || "");
   const getSessionDate = () => {
@@ -136,40 +150,45 @@ function App() {
     }
     return sessionDate.current;
   };
-  const accumulateStats = (settledRound) => {
-    const records = loadStats();
+  const accumulateStats = async (settledRound) => {
     const date = getSessionDate();
-    settledRound.players.forEach(p => {
-      if (!p.active) return;
-      const idx = records.findIndex(r => r.date === date && r.name === p.name);
-      if (idx !== -1) {
-        records[idx].cash += p.profitCash;
-        records[idx].rounds = (records[idx].rounds || 1) + 1;
-      } else {
-        records.push({ date, name: p.name, cash: p.profitCash, rounds: 1 });
+    try {
+      const existing = await supaFetch("/stats?date=eq." + encodeURIComponent(date) + "&select=id,name,cash,rounds", { prefer: "return=representation" });
+      const map = {};
+      if (Array.isArray(existing)) existing.forEach(r => { map[r.name] = r; });
+      for (const p of settledRound.players) {
+        if (!p.active) continue;
+        const ex = map[p.name];
+        if (ex) {
+          await supaFetch("/stats?id=eq." + ex.id, { method: "PATCH", body: JSON.stringify({ cash: Number(ex.cash) + p.profitCash, rounds: (ex.rounds || 1) + 1 }) });
+        } else {
+          await supaFetch("/stats", { method: "POST", body: JSON.stringify({ date, name: p.name, cash: p.profitCash, rounds: 1 }) });
+        }
       }
-    });
-    saveStats(records);
+    } catch(e) { console.error("Stats accumulate error:", e); }
   };
-  const removeStatsForRound = (round) => {
-    const records = loadStats();
+  const removeStatsForRound = async (round) => {
     const date = getSessionDate();
-    round.players.forEach(p => {
-      if (!p.active) return;
-      const idx = records.findIndex(r => r.date === date && r.name === p.name);
-      if (idx !== -1) {
-        records[idx].cash -= p.profitCash;
-        records[idx].rounds = (records[idx].rounds || 1) - 1;
-        if (records[idx].rounds <= 0) records.splice(idx, 1);
+    try {
+      const existing = await supaFetch("/stats?date=eq." + encodeURIComponent(date) + "&select=id,name,cash,rounds", { prefer: "return=representation" });
+      const map = {};
+      if (Array.isArray(existing)) existing.forEach(r => { map[r.name] = r; });
+      for (const p of round.players) {
+        if (!p.active) continue;
+        const ex = map[p.name];
+        if (ex) {
+          const newRounds = (ex.rounds || 1) - 1;
+          if (newRounds <= 0) { await supaFetch("/stats?id=eq." + ex.id, { method: "DELETE" }); }
+          else { await supaFetch("/stats?id=eq." + ex.id, { method: "PATCH", body: JSON.stringify({ cash: Number(ex.cash) - p.profitCash, rounds: newRounds }) }); }
+        }
       }
-    });
-    saveStats(records);
+    } catch(e) { console.error("Stats remove error:", e); }
   };
   const aggregateStats = (records) => {
     const map = {};
     records.forEach(r => {
       if (!map[r.name]) map[r.name] = { name: r.name, totalCash: 0, rounds: 0, dates: new Set() };
-      map[r.name].totalCash += r.cash;
+      map[r.name].totalCash += Number(r.cash);
       map[r.name].rounds += (r.rounds || 1);
       map[r.name].dates.add(r.date);
     });
@@ -254,6 +273,7 @@ function App() {
     try { localStorage.setItem("poker-club", JSON.stringify({ members, nextId: nid })); } catch(e) {}
   };
 
+
   // ── Persist game state ──
   useEffect(() => {
     try { localStorage.setItem("poker-rounds", JSON.stringify(rounds)); } catch(e) {}
@@ -265,30 +285,26 @@ function App() {
     try { if (seatResult) localStorage.setItem("poker-seats", JSON.stringify(seatResult)); else localStorage.removeItem("poker-seats"); } catch(e) {}
   }, [seatResult]);
 
-  // Auto-migrate old stats format only
+  // Auto-migrate localStorage stats to Supabase
   useEffect(() => {
     const raw = localStorage.getItem("poker-stats");
     if (!raw) return;
     try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) && typeof parsed === "object") {
-        // Old object format: {name: {totalCash, rounds, sessions}} → one record per player
-        const records = [];
-        Object.entries(parsed).forEach(([name, d]) => {
-          records.push({ date: "2026-03-11", name, cash: d.totalCash || 0, rounds: d.rounds || 1 });
-        });
-        saveStats(records);
-        localStorage.removeItem("poker-stats-session");
-      } else if (Array.isArray(parsed) && parsed.length > 0 && !parsed[0].rounds) {
-        // Old per-round array format: consolidate into per-session
+      let records = JSON.parse(raw);
+      // Convert old formats
+      if (!Array.isArray(records) && typeof records === "object") {
+        records = Object.entries(records).map(([name, d]) => ({ date: "2026-03-11", name, cash: d.totalCash || 0, rounds: d.rounds || 1 }));
+      } else if (Array.isArray(records) && records.length > 0 && !records[0].rounds) {
         const map = {};
-        parsed.forEach(r => {
-          const key = r.date + "|" + r.name;
-          if (!map[key]) map[key] = { date: r.date, name: r.name, cash: 0, rounds: 0 };
-          map[key].cash += r.cash;
-          map[key].rounds += 1;
-        });
-        saveStats(Object.values(map));
+        records.forEach(r => { const k = r.date + "|" + r.name; if (!map[k]) map[k] = { date: r.date, name: r.name, cash: 0, rounds: 0 }; map[k].cash += r.cash; map[k].rounds += 1; });
+        records = Object.values(map);
+      }
+      if (Array.isArray(records) && records.length > 0) {
+        const rows = records.map(r => ({ date: r.date, name: r.name, cash: r.cash, rounds: r.rounds || 1 }));
+        supaFetch("/stats", { method: "POST", body: JSON.stringify(rows) }).then(() => {
+          localStorage.removeItem("poker-stats");
+          localStorage.removeItem("poker-stats-session");
+        }).catch(e => console.error("Migration error:", e));
       }
     } catch(e) {}
   }, []);
@@ -377,23 +393,35 @@ function App() {
       setRounds(data.rounds);
       setCurrentRound(data.currentRound || null);
       setEditingRoundIdx(null);
-      // Auto-accumulate stats from imported rounds
+      // Auto-accumulate stats from imported rounds to Supabase
       const date = getSessionDate();
-      const records = loadStats();
-      data.rounds.forEach(r => {
-        if (!r.settled) return;
-        r.players.forEach(p => {
-          if (!p.active) return;
-          const idx = records.findIndex(rec => rec.date === date && rec.name === p.name);
-          if (idx !== -1) {
-            records[idx].cash += p.profitCash;
-            records[idx].rounds = (records[idx].rounds || 1) + 1;
-          } else {
-            records.push({ date, name: p.name, cash: p.profitCash, rounds: 1 });
+      (async () => {
+        try {
+          const existing = await supaFetch("/stats?date=eq." + encodeURIComponent(date) + "&select=id,name,cash,rounds", { prefer: "return=representation" });
+          const map = {};
+          if (Array.isArray(existing)) existing.forEach(r => { map[r.name] = r; });
+          for (const r of data.rounds) {
+            if (!r.settled) continue;
+            for (const p of r.players) {
+              if (!p.active) continue;
+              const ex = map[p.name];
+              if (ex) {
+                ex.cash = Number(ex.cash) + p.profitCash;
+                ex.rounds = (ex.rounds || 1) + 1;
+              } else {
+                map[p.name] = { name: p.name, cash: p.profitCash, rounds: 1 };
+              }
+            }
           }
-        });
-      });
-      saveStats(records);
+          for (const [name, rec] of Object.entries(map)) {
+            if (rec.id) {
+              await supaFetch("/stats?id=eq." + rec.id, { method: "PATCH", body: JSON.stringify({ cash: rec.cash, rounds: rec.rounds }) });
+            } else {
+              await supaFetch("/stats", { method: "POST", body: JSON.stringify({ date, name, cash: rec.cash, rounds: rec.rounds }) });
+            }
+          }
+        } catch(e) { console.error("Import stats error:", e); }
+      })();
       setView(data.currentRound ? "round" : data.rounds.length > 0 ? "summary" : "club");
       setShowImport(false); setImportText("");
       setToast("imported"); setTimeout(() => setToast(""), 2000);
@@ -937,7 +965,12 @@ function App() {
         )}
 
         {showStats && (() => {
-          const allRecords = loadStats();
+          if (statsLoading) return (
+            <div className="stats-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <p style={{ color: "#7a8a80" }}>載入排名中...</p>
+            </div>
+          );
+          const allRecords = cloudStats;
           const filtered = allRecords.filter(r => {
             if (statsDateFrom && r.date < statsDateFrom) return false;
             if (statsDateTo && r.date > statsDateTo) return false;
@@ -1014,29 +1047,28 @@ function App() {
                 </div>
                 <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "11px", cursor: "pointer" }} onClick={async () => {
-                    try { await navigator.clipboard.writeText(JSON.stringify(loadStats())); localStorage.setItem("poker-stats-last-export", todayStr()); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
+                    try { await navigator.clipboard.writeText(JSON.stringify(cloudStats)); localStorage.setItem("poker-stats-last-export", todayStr()); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
                   }}>📤 全部匯出</button>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "11px", cursor: "pointer" }} onClick={async () => {
                     const lastExport = localStorage.getItem("poker-stats-last-export") || "";
-                    const all = loadStats();
-                    const diff = lastExport ? all.filter(r => r.date > lastExport) : all;
+                    const diff = lastExport ? cloudStats.filter(r => r.date > lastExport) : cloudStats;
                     if (diff.length === 0) { alert("沒有新的排名資料需要匯出"); return; }
                     try { await navigator.clipboard.writeText(JSON.stringify(diff)); localStorage.setItem("poker-stats-last-export", todayStr()); setToast("exported"); setTimeout(() => setToast(""), 2000); } catch(e) { setToast("error"); setTimeout(() => setToast(""), 2000); }
                   }}>📤 差異匯出</button>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid " + theme.accent + "44", color: theme.accent, fontSize: "11px", cursor: "pointer" }} onClick={() => setShowStatsImport(v => !v)}>📥 匯入</button>
                 </div>
-                {(() => { const le = localStorage.getItem("poker-stats-last-export"); const all = loadStats(); const newCount = le ? all.filter(r => r.date > le).length : all.length; return le ? <p style={{ fontSize: "10px", color: "#555", marginTop: "4px" }}>上次匯出：{le}｜新增 {newCount} 筆</p> : null; })()}
+                {(() => { const le = localStorage.getItem("poker-stats-last-export"); const newCount = le ? cloudStats.filter(r => r.date > le).length : cloudStats.length; return le ? <p style={{ fontSize: "10px", color: "#555", marginTop: "4px" }}>上次匯出：{le}｜新增 {newCount} 筆</p> : null; })()}
                 {showStatsImport && (
                   <div style={{ marginTop: "8px" }}>
                     <textarea style={{ width: "100%", height: "70px", background: "#1a1a1a", border: "1px solid #333", borderRadius: "6px", color: "#e8e6e3", fontFamily: "monospace", fontSize: "10px", padding: "6px 8px", resize: "none", outline: "none" }} value={statsImportText} onChange={e => setStatsImportText(e.target.value)} placeholder="貼上匯出的排名資料..." />
                     <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
-                      <button style={{ flex: 1, padding: "8px", borderRadius: "6px", background: theme.accent, color: "#fff", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer" }} onClick={() => {
+                      <button style={{ flex: 1, padding: "8px", borderRadius: "6px", background: theme.accent, color: "#fff", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer" }} onClick={async () => {
                         try {
                           const imported = JSON.parse(statsImportText.trim());
                           if (!Array.isArray(imported)) { alert("資料格式錯誤"); return; }
                           if (!confirm("匯入會將排名資料合併（不覆蓋），確定嗎？")) return;
-                          const existing = loadStats();
-                          saveStats([...existing, ...imported]);
+                          const rows = imported.map(r => ({ date: r.date, name: r.name, cash: r.cash, rounds: r.rounds || 1 }));
+                          await supaFetch("/stats", { method: "POST", body: JSON.stringify(rows) });
                           setShowStatsImport(false); setStatsImportText("");
                           setShowStats(false); setTimeout(() => setShowStats(true), 100);
                         } catch(e) { alert("資料格式錯誤，請確認貼上的內容"); }
@@ -1046,7 +1078,7 @@ function App() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                  <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid #e74c3c44", color: "#e74c3c", fontSize: "12px", cursor: "pointer" }} onClick={() => { if (confirm("確定要清除所有累積戰績？此操作不可復原。")) { localStorage.removeItem("poker-stats"); localStorage.removeItem("poker-stats-session"); setShowStats(false); setTimeout(() => setShowStats(true), 100); } }}>清除所有累積</button>
+                  <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid #e74c3c44", color: "#e74c3c", fontSize: "12px", cursor: "pointer" }} onClick={async () => { if (confirm("確定要清除所有累積戰績？此操作不可復原。")) { try { await supaFetch("/stats?id=gt.0", { method: "DELETE" }); } catch(e) {} setCloudStats([]); setShowStats(false); setTimeout(() => setShowStats(true), 100); } }}>清除所有累積</button>
                 </div>
                 <p style={{ color: "#555", fontSize: "10px", textAlign: "center", marginTop: "12px" }}>點擊標題 ♠ 開啟此頁面</p>
               </div>
