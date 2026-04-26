@@ -872,7 +872,7 @@ function App() {
           <div ref={summaryRef} style={{ background: "#0a0f0d", padding: "4px 0" }}>
           <div style={{ marginBottom: "20px" }}>
             <h2 style={{ fontSize: "22px", fontWeight: 700, marginBottom: "4px" }}>今日總結</h2>
-            <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>{new Date().toLocaleDateString("zh-TW", { month: "long", day: "numeric" })} · 共 {rounds.length} 局</p>
+            <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>{(() => { const d = sessionDate.current || todayStr(); const [y,m,dd] = d.split("-"); return parseInt(m) + "月" + parseInt(dd) + "日"; })()} · 共 {rounds.length} 局</p>
           </div>
 
           {!isCapturing && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
