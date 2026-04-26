@@ -140,9 +140,13 @@ function App() {
   const loadPending = () => { try { return JSON.parse(localStorage.getItem("poker-stats-pending")) || []; } catch(e) { return []; } };
   const savePending = (p) => { try { localStorage.setItem("poker-stats-pending", JSON.stringify(p)); setPendingCount(p.length); } catch(e) {} };
 
+  const syncingRef = useRef(false);
   const syncPending = async () => {
+    if (syncingRef.current) return false;
+    syncingRef.current = true;
     const pending = loadPending();
-    if (pending.length === 0) return true;
+    if (pending.length === 0) { syncingRef.current = false; return true; }
+    const snapshotCount = pending.length;
     try {
       const grouped = {};
       pending.forEach(p => {
@@ -163,9 +167,14 @@ function App() {
           await supaFetch("/stats", { method: "POST", body: JSON.stringify({ date: g.date, name: g.name, cash: g.cashDelta, rounds: g.roundsDelta }) });
         }
       }
-      savePending([]);
+      // Only remove the items we processed, keep any new ones added during sync
+      const current = loadPending();
+      savePending(current.slice(snapshotCount));
+      syncingRef.current = false;
+      // If new items were added during sync, sync them too
+      if (current.length > snapshotCount) return syncPending();
       return true;
-    } catch(e) { console.error("Sync error:", e); return false; }
+    } catch(e) { console.error("Sync error:", e); syncingRef.current = false; return false; }
   };
 
   const refreshStats = async () => {
@@ -194,7 +203,6 @@ function App() {
       pending.push({ date, name: p.name, cashDelta: p.profitCash, roundsDelta: 1 });
     });
     savePending(pending);
-    syncPending();
   };
   const removeStatsForRound = (round) => {
     const date = getSessionDate();
@@ -204,7 +212,6 @@ function App() {
       pending.push({ date, name: p.name, cashDelta: -p.profitCash, roundsDelta: -1 });
     });
     savePending(pending);
-    syncPending();
   };
   const aggregateStats = (records) => {
     const map = {};
