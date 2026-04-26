@@ -178,7 +178,6 @@ function App() {
   };
 
   const refreshStats = async () => {
-    await syncPending();
     try {
       const data = await supaFetch("/stats?select=id,date,name,cash,rounds&order=date.asc", { prefer: "return=representation" });
       if (Array.isArray(data)) setCloudStats(data.map(r => ({ ...r, cash: Number(r.cash) })));
@@ -443,7 +442,6 @@ function App() {
         });
       });
       savePending(pending);
-      syncPending();
       setView(data.currentRound ? "round" : data.rounds.length > 0 ? "summary" : "club");
       setShowImport(false); setImportText("");
       setToast("imported"); setTimeout(() => setToast(""), 2000);
@@ -1008,7 +1006,16 @@ function App() {
               <div style={{ maxWidth: "500px", margin: "0 auto" }}>
                 <div ref={statsRef} style={{ background: "#0a0f0d", padding: "16px", borderRadius: "12px" }}>
                   <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "16px" }}>🏆 累積戰績排名</h2>
-                  {pendingCount > 0 && <div style={{ fontSize: "11px", color: "#f39c12", marginBottom: "10px" }}>⏳ {pendingCount} 筆待同步</div>}
+                  {pendingCount > 0 && <div style={{ marginBottom: "12px" }}>
+                    <div style={{ fontSize: "11px", color: "#f39c12", marginBottom: "8px" }}>⏳ {pendingCount} 筆待上傳</div>
+                    <button style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "#f39c12", color: "#000", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer" }} onClick={async () => {
+                      setStatsLoading(true);
+                      const ok = await syncPending();
+                      if (ok) { await refreshStats(); setToast("exported"); } else { setToast("error"); }
+                      setStatsLoading(false);
+                      setTimeout(() => setToast(""), 2000);
+                    }}>☁️ 上傳戰績到雲端</button>
+                  </div>}
                   {!isCapturing && <div style={{ display: "flex", gap: "4px", padding: "3px", background: "#1a1a1a", borderRadius: "10px", marginBottom: "10px" }}>
                     <button style={tabStyle(statsSortBy === "avg")} onClick={() => setStatsSortBy("avg")}>局均排名</button>
                     <button style={tabStyle(statsSortBy === "total")} onClick={() => setStatsSortBy("total")}>總盈虧排名</button>
@@ -1082,11 +1089,9 @@ function App() {
                         try {
                           const imported = JSON.parse(statsImportText.trim());
                           if (!Array.isArray(imported)) { alert("資料格式錯誤"); return; }
-                          if (!confirm("匯入會將排名資料合併（不覆蓋），確定嗎？")) return;
-                          const pending = loadPending();
-                          imported.forEach(r => { pending.push({ date: r.date, name: r.name, cashDelta: Number(r.cash), roundsDelta: r.rounds || 1 }); });
-                          savePending(pending);
-                          await syncPending();
+                          if (!confirm("匯入會將排名資料直接寫入雲端，確定嗎？")) return;
+                          const rows = imported.map(r => ({ date: r.date, name: r.name, cash: Number(r.cash), rounds: r.rounds || 1 }));
+                          await supaFetch("/stats", { method: "POST", body: JSON.stringify(rows) });
                           setShowStatsImport(false); setStatsImportText("");
                           setShowStats(false); setTimeout(() => setShowStats(true), 100);
                         } catch(e) { alert("資料格式錯誤，請確認貼上的內容"); }
