@@ -233,12 +233,10 @@ function App() {
   const [buyInCash, setBuyInCash] = useState(() => {
     try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.buyInCash || DEFAULT_BUY_IN_CASH; } catch(e) { return DEFAULT_BUY_IN_CASH; }
   });
-  const [venueFeeAmt, setVenueFeeAmt] = useState(() => {
-    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeAmt || 10; } catch(e) { return 10; }
-  });
+  const VENUE_FEE = 50;
   const buyInChips = buyInCash * chipRate;
-  const saveSettings = (rate, cash, fee) => {
-    try { localStorage.setItem("poker-settings", JSON.stringify({ chipRate: rate, buyInCash: cash, venueFeeAmt: fee })); } catch(e) {}
+  const saveSettings = (rate, cash) => {
+    try { localStorage.setItem("poker-settings", JSON.stringify({ chipRate: rate, buyInCash: cash })); } catch(e) {}
   };
 
   useEffect(() => {
@@ -522,14 +520,14 @@ function App() {
                 <div style={{ fontSize: "11px", color: theme.textDim, marginBottom: "4px" }}>買入金額</div>
                 <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                   <span style={{ color: theme.textDim, fontSize: "14px" }}>$</span>
-                  <input type="text" inputMode="numeric" style={{ ...S.input, textAlign: "right", fontWeight: 600, color: theme.gold }} value={buyInCash} onChange={e => { const v = parseInt(e.target.value) || 0; setBuyInCash(v); saveSettings(chipRate, v, venueFeeAmt); }} />
+                  <input type="text" inputMode="numeric" style={{ ...S.input, textAlign: "right", fontWeight: 600, color: theme.gold }} value={buyInCash} onChange={e => { const v = parseInt(e.target.value) || 0; setBuyInCash(v); saveSettings(chipRate, v); }} />
                 </div>
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: "11px", color: theme.textDim, marginBottom: "4px" }}>籌碼比</div>
                 <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                   <span style={{ color: theme.textDim, fontSize: "12px" }}>1:</span>
-                  <input type="text" inputMode="numeric" style={{ ...S.input, textAlign: "right", fontWeight: 600, color: theme.gold }} value={chipRate} onChange={e => { const v = parseInt(e.target.value) || 0; setChipRate(v); saveSettings(v, buyInCash, venueFeeAmt); }} />
+                  <input type="text" inputMode="numeric" style={{ ...S.input, textAlign: "right", fontWeight: 600, color: theme.gold }} value={chipRate} onChange={e => { const v = parseInt(e.target.value) || 0; setChipRate(v); saveSettings(v, buyInCash); }} />
                 </div>
               </div>
             </div>
@@ -819,27 +817,19 @@ function App() {
           </div>
 
           {!isCapturing && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
-            <div style={{ fontSize: "13px", fontWeight: 600 }}>🏠 場地費</div>
-            {venueFee && (
-              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                <span style={{ fontSize: "11px", color: theme.textDim }}>每人每局</span>
-                <span style={{ color: theme.textDim, fontSize: "12px" }}>$</span>
-                <input type="text" inputMode="numeric" style={{ ...S.input, width: "48px", textAlign: "right", fontWeight: 600, color: theme.gold, padding: "3px 6px", fontSize: "13px" }} value={venueFeeAmt} onChange={e => { const v = parseInt(e.target.value) || 0; setVenueFeeAmt(v); saveSettings(chipRate, buyInCash, v); }} />
-              </div>
-            )}
+            <div style={{ fontSize: "13px", fontWeight: 600 }}>🏠 場地費 ${VENUE_FEE}/人</div>
             <div onClick={() => setVenueFee(v => !v)} style={{ width: "44px", height: "24px", borderRadius: "12px", background: venueFee ? theme.accent : theme.border, position: "relative", cursor: "pointer", flexShrink: 0 }}>
               <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: venueFee ? "22px" : "2px", transition: "left 0.2s" }} />
             </div>
           </div>}
 
           {rounds.length > 0 && (() => {
-            const VENUE_FEE_PER_ROUND = venueFeeAmt;
             const pm = {};
             rounds.forEach(r => r.players.forEach(p => { if (p.active && !pm[p.id]) pm[p.id] = { id: p.id, name: p.name }; }));
             const pt = Object.values(pm).map(pl => {
               const roundProfit = rounds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0);
               const roundsPlayed = rounds.filter(r => r.players.some(p => p.id === pl.id && p.active)).length;
-              const fee = venueFee ? roundsPlayed * VENUE_FEE_PER_ROUND : 0;
+              const fee = venueFee ? VENUE_FEE : 0;
               return { ...pl, total: roundProfit - fee, fee, roundsPlayed };
             });
             const sorted = [...pt].sort((a, b) => nameSort(a.name, b.name));
@@ -883,31 +873,19 @@ function App() {
                 <span><span style={{ color: theme.red }}>■</span> 輸</span>
               </div>
 
-              {venueFee && (() => {
-                const grouped = {};
-                sorted.forEach(p => { const k = p.roundsPlayed; if (!grouped[k]) grouped[k] = []; grouped[k].push(p); });
-                const keys = Object.keys(grouped).sort((a, b) => b - a);
-                return (
-                  <div style={{ marginTop: "12px", padding: "12px 14px", background: "#f39c1211", border: "1px solid #f39c1222", borderRadius: "10px" }}>
-                    <div style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600, marginBottom: "8px" }}>🏠 場地費明細</div>
-                    {keys.map(k => (
-                      <div key={k} style={{ marginBottom: "6px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
-                          <span style={{ color: theme.text }}>{grouped[k].map(p => p.name).join("、")}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
-                          <span style={{ color: theme.textDim }}>× {k} 局</span>
-                          <span style={{ color: "#f39c12" }}>-${k * VENUE_FEE_PER_ROUND} / 人</span>
-                        </div>
-                      </div>
-                    ))}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #f39c1233" }}>
-                      <span style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600 }}>場主收入</span>
-                      <span style={{ fontSize: "16px", fontWeight: 700, color: "#f39c12" }}>${totalFee}</span>
-                    </div>
+              {venueFee && (
+                <div style={{ marginTop: "12px", padding: "12px 14px", background: "#f39c1211", border: "1px solid #f39c1222", borderRadius: "10px" }}>
+                  <div style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600, marginBottom: "8px" }}>🏠 場地費明細</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
+                    <span style={{ color: theme.text }}>{sorted.length} 人 × ${VENUE_FEE}</span>
+                    <span style={{ color: "#f39c12" }}>-${VENUE_FEE} / 人</span>
                   </div>
-                );
-              })()}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #f39c1233" }}>
+                    <span style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600 }}>場主收入</span>
+                    <span style={{ fontSize: "16px", fontWeight: 700, color: "#f39c12" }}>${totalFee}</span>
+                  </div>
+                </div>
+              )}
             </>);
           })()}
           </div>
