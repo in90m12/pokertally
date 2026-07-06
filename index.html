@@ -233,7 +233,9 @@ function App() {
   const [buyInCash, setBuyInCash] = useState(() => {
     try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.buyInCash || DEFAULT_BUY_IN_CASH; } catch(e) { return DEFAULT_BUY_IN_CASH; }
   });
-  const VENUE_FEE = 50;
+  const [venueFeeAmt, setVenueFeeAmt] = useState(() => {
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeAmt || 50; } catch(e) { return 50; }
+  });
   const buyInChips = buyInCash * chipRate;
   const saveSettings = (rate, cash) => {
     try { localStorage.setItem("poker-settings", JSON.stringify({ chipRate: rate, buyInCash: cash })); } catch(e) {}
@@ -655,10 +657,10 @@ function App() {
 
           <div style={S.card}>
             <div style={S.section}>各玩家結算</div>
-            {currentRound.players.map(p => (
+            {(seatResult ? [...currentRound.players].sort((a, b) => { const sa = seatResult.seats.find(s => s.player.id === a.id); const sb = seatResult.seats.find(s => s.player.id === b.id); return (sa ? sa.seat : 99) - (sb ? sb.seat : 99); }) : currentRound.players).map(p => (
               <div key={p.id} style={{ ...S.row, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", marginBottom: "8px" }}>
-                  <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
+                  <span style={{ fontWeight: 600, flex: 1 }}>{seatResult && (() => { const se = seatResult.seats.find(ss => ss.player.id === p.id); return se ? <span style={{ color: theme.textDim, fontWeight: 400, fontSize: "11px" }}>#{se.seat} </span> : null; })()}{p.name}</span>
                   <span style={{ fontSize: "12px", color: theme.textDim }}>投入 {formatChips((1 + p.rebuys) * buyInChips)}</span>
                   <button style={{ background: "transparent", border: "none", color: theme.textDim, fontSize: "14px", cursor: "pointer", padding: "0 2px" }} onClick={() => removePlayerMidRound(p.id)}>✕</button>
                 </div>
@@ -750,7 +752,19 @@ function App() {
             {/* ── Oval poker table ── */}
             <div style={S.card}>
               <div style={S.section}>座位結果</div>
-              <div style={{ position: "relative", width: "100%", maxWidth: "500px", margin: "0 auto", aspectRatio: "2.2 / 1", minHeight: "240px" }}>
+              <div style={{ position: "relative", width: "100%", maxWidth: "500px", margin: "20px auto 0", aspectRatio: "2.2 / 1", minHeight: "240px" }}>
+                {/* Blackboard marker - top */}
+                <div style={{ position: "absolute", top: "-18px", left: "20%", right: "20%", display: "flex", alignItems: "center", gap: "6px", zIndex: 1 }}>
+                  <div style={{ flex: 1, height: "1px", background: "#555" }} />
+                  <span style={{ fontSize: "9px", color: "#777", whiteSpace: "nowrap" }}>黑板</span>
+                  <div style={{ flex: 1, height: "1px", background: "#555" }} />
+                </div>
+                {/* Window marker - right */}
+                <div style={{ position: "absolute", right: "-24px", top: "25%", bottom: "25%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px", zIndex: 1 }}>
+                  <div style={{ flex: 1, width: "1px", background: "#555" }} />
+                  <span style={{ fontSize: "9px", color: "#777", writingMode: "vertical-rl" }}>窗戶</span>
+                  <div style={{ flex: 1, width: "1px", background: "#555" }} />
+                </div>
                 {/* Table body - pill shape */}
                 <div style={{
                   position: "absolute", top: "20%", left: "6%", right: "6%", bottom: "20%",
@@ -817,7 +831,7 @@ function App() {
           </div>
 
           {!isCapturing && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
-            <div style={{ fontSize: "13px", fontWeight: 600 }}>🏠 場地費 ${VENUE_FEE}/人</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 600 }}>🏠 場地費 $<input type="text" inputMode="numeric" style={{ ...S.input, width: "40px", textAlign: "center", fontWeight: 600, color: theme.gold, padding: "2px 4px", fontSize: "13px" }} value={venueFeeAmt} onChange={e => { const v = parseInt(e.target.value) || 0; setVenueFeeAmt(v); try { localStorage.setItem("poker-settings", JSON.stringify({ chipRate, buyInCash, venueFeeAmt: v })); } catch(e2) {} }} />/人</div>
             <div onClick={() => setVenueFee(v => !v)} style={{ width: "44px", height: "24px", borderRadius: "12px", background: venueFee ? theme.accent : theme.border, position: "relative", cursor: "pointer", flexShrink: 0 }}>
               <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: venueFee ? "22px" : "2px", transition: "left 0.2s" }} />
             </div>
@@ -829,7 +843,7 @@ function App() {
             const pt = Object.values(pm).map(pl => {
               const roundProfit = rounds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0);
               const roundsPlayed = rounds.filter(r => r.players.some(p => p.id === pl.id && p.active)).length;
-              const fee = venueFee ? VENUE_FEE : 0;
+              const fee = venueFee ? venueFeeAmt : 0;
               return { ...pl, total: roundProfit - fee, fee, roundsPlayed };
             });
             const sorted = [...pt].sort((a, b) => nameSort(a.name, b.name));
@@ -877,8 +891,8 @@ function App() {
                 <div style={{ marginTop: "12px", padding: "12px 14px", background: "#f39c1211", border: "1px solid #f39c1222", borderRadius: "10px" }}>
                   <div style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600, marginBottom: "8px" }}>🏠 場地費明細</div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
-                    <span style={{ color: theme.text }}>{sorted.length} 人 × ${VENUE_FEE}</span>
-                    <span style={{ color: "#f39c12" }}>-${VENUE_FEE} / 人</span>
+                    <span style={{ color: theme.text }}>{sorted.length} 人 × ${venueFeeAmt}</span>
+                    <span style={{ color: "#f39c12" }}>-${venueFeeAmt} / 人</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #f39c1233" }}>
                     <span style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600 }}>場主收入</span>
