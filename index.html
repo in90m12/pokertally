@@ -173,7 +173,14 @@ function App() {
       map[r.name].rounds += (r.rounds || 1);
       map[r.name].dates.add(r.date);
     });
-    return Object.values(map).map(d => ({ ...d, totalCash: Math.round(d.totalCash), sessions: d.dates.size, avg: d.rounds > 0 ? Math.round(d.totalCash / d.rounds) : 0 }));
+    return Object.values(map).map(d => {
+      const dateArr = [...d.dates];
+      const winSessions = dateArr.filter(dt => {
+        const dayRecords = records.filter(r => r.name === d.name && r.date === dt);
+        return dayRecords.reduce((s, r) => s + Number(r.cash), 0) > 0;
+      }).length;
+      return { ...d, totalCash: Math.round(d.totalCash), sessions: d.dates.size, winRate: d.dates.size > 0 ? Math.round(winSessions / d.dates.size * 100) : 0 };
+    });
   };
 
   const captureAndShare = async (ref, filename) => {
@@ -927,7 +934,7 @@ function App() {
             return true;
           });
           const entries = aggregateStats(filtered);
-          const sorted = [...entries].sort((a, b) => statsSortBy === "avg" ? b.avg - a.avg : b.totalCash - a.totalCash);
+          const sorted = [...entries].sort((a, b) => statsSortBy === "winRate" ? ((a.sessions >= 5 ? 0 : 1) - (b.sessions >= 5 ? 0 : 1)) || b.winRate - a.winRate : b.totalCash - a.totalCash);
           const tabStyle = (active) => ({ flex: 1, padding: "8px", borderRadius: "8px", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer", background: active ? "#2ecc71" : "transparent", color: active ? "#000" : "#7a8a80" });
           const hasFilter = statsDateFrom || statsDateTo;
           const allDates = [...new Set(allRecords.map(r => r.date))].sort();
@@ -937,10 +944,10 @@ function App() {
                 <div ref={statsRef} style={{ background: "#0a0f0d", padding: "16px", borderRadius: "12px" }}>
                   <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "16px" }}>🏆 累積戰績排名</h2>
                   {!isCapturing && <div style={{ display: "flex", gap: "4px", padding: "3px", background: "#1a1a1a", borderRadius: "10px", marginBottom: "10px" }}>
-                    <button style={tabStyle(statsSortBy === "avg")} onClick={() => setStatsSortBy("avg")}>局均排名</button>
+                    <button style={tabStyle(statsSortBy === "winRate")} onClick={() => setStatsSortBy("winRate")}>勝率排名</button>
                     <button style={tabStyle(statsSortBy === "total")} onClick={() => setStatsSortBy("total")}>總盈虧排名</button>
                   </div>}
-                  {isCapturing && <div style={{ fontSize: "12px", color: "#7a8a80", marginBottom: "10px" }}>依{statsSortBy === "avg" ? "局均" : "總盈虧"}排名{hasFilter ? " (" + (statsDateFrom || "起始") + " ~ " + (statsDateTo || "至今") + ")" : ""}</div>}
+                  {isCapturing && <div style={{ fontSize: "12px", color: "#7a8a80", marginBottom: "10px" }}>依{statsSortBy === "winRate" ? "勝率" : "總盈虧"}排名{hasFilter ? " (" + (statsDateFrom || "起始") + " ~ " + (statsDateTo || "至今") + ")" : ""}</div>}
                   {!isCapturing && <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "14px", fontSize: "12px" }}>
                     <input type="date" value={statsDateFrom} onChange={e => setStatsDateFrom(e.target.value)} style={{ flex: 1, background: "#1a1a1a", border: "1px solid #333", borderRadius: "6px", color: "#e8e6e3", padding: "6px 8px", fontSize: "12px" }} />
                     <span style={{ color: "#7a8a80" }}>~</span>
@@ -956,7 +963,7 @@ function App() {
                             <tr style={{ background: "#0d1a14" }}>
                               <th style={{ padding: "8px 6px", textAlign: "left", color: "#7a8a80", fontWeight: 600, fontSize: "11px" }}>#</th>
                               <th style={{ padding: "8px 6px", textAlign: "left", color: "#7a8a80", fontWeight: 600, fontSize: "11px" }}>玩家</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: statsSortBy === "avg" ? "#f1c40f" : "#7a8a80", fontWeight: 600, fontSize: "11px" }}>局均</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: statsSortBy === "winRate" ? "#f1c40f" : "#7a8a80", fontWeight: 600, fontSize: "11px" }}>勝率</th>
                               <th style={{ padding: "8px 6px", textAlign: "right", color: statsSortBy === "total" ? "#f1c40f" : "#7a8a80", fontWeight: 600, fontSize: "11px" }}>總計</th>
                               <th style={{ padding: "8px 6px", textAlign: "right", color: "#7a8a80", fontWeight: 600, fontSize: "11px" }}>場次</th>
                             </tr>
@@ -968,7 +975,7 @@ function App() {
                               <tr style={{ background: i % 2 === 0 ? "#141e19" : "#1a2a22" }}>
                                 <td style={{ padding: "8px 6px", color: i === 0 ? "#f1c40f" : "#7a8a80", fontWeight: 600 }}>{i + 1}</td>
                                 <td style={{ padding: "8px 6px", fontWeight: 600, cursor: "pointer", textDecoration: "underline", textDecorationColor: isOpen ? theme.accent : "#2a3a30" }} onClick={() => setStatsDetailPlayer(isOpen ? null : e.name)}>{e.name}</td>
-                                <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: statsSortBy === "avg" ? 700 : 500, fontVariantNumeric: "tabular-nums", color: e.avg > 0 ? "#2ecc71" : e.avg < 0 ? "#e74c3c" : "#7a8a80" }}>{e.avg > 0 ? "+" : ""}{e.avg}</td>
+                                <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: statsSortBy === "winRate" ? 700 : 500, fontVariantNumeric: "tabular-nums", color: e.sessions < 5 ? "#555" : e.winRate >= 50 ? "#2ecc71" : "#e74c3c" }}>{e.winRate}%{e.sessions < 5 ? " *" : ""}</td>
                                 <td style={{ padding: "8px 6px", textAlign: "right", fontWeight: statsSortBy === "total" ? 700 : 500, fontVariantNumeric: "tabular-nums", color: e.totalCash > 0 ? "#2ecc71" : e.totalCash < 0 ? "#e74c3c" : "#7a8a80" }}>{e.totalCash > 0 ? "+" : ""}{e.totalCash}</td>
                                 <td style={{ padding: "8px 6px", textAlign: "right", color: "#7a8a80" }}>{e.sessions}</td>
                               </tr>
@@ -1031,6 +1038,7 @@ function App() {
                 <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                   <button style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "transparent", border: "1px solid #e74c3c44", color: "#e74c3c", fontSize: "12px", cursor: "pointer" }} onClick={() => { if (confirm("確定要清除所有累積戰績？此操作不可復原。")) { localStorage.removeItem("poker-stats"); setShowStats(false); setTimeout(() => setShowStats(true), 100); } }}>清除所有累積</button>
                 </div>
+                {statsSortBy === "winRate" && <p style={{ color: "#555", fontSize: "10px", marginTop: "8px" }}>* 未滿 5 場，不列入排名</p>}
                 <p style={{ color: "#555", fontSize: "10px", textAlign: "center", marginTop: "12px" }}>點擊標題 ♠ 開啟此頁面</p>
               </div>
             </div>
