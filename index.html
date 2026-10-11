@@ -243,9 +243,15 @@ function App() {
   const [venueFeeAmt, setVenueFeeAmt] = useState(() => {
     try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeAmt || 50; } catch(e) { return 50; }
   });
+  const [venueFeeMode, setVenueFeeMode] = useState(() => {
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeMode || "session"; } catch(e) { return "session"; }
+  });
   const buyInChips = buyInCash * chipRate;
+  const saveVenueSettings = (amt, mode) => {
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")) || {}; localStorage.setItem("poker-settings", JSON.stringify({ ...d, venueFeeAmt: amt, venueFeeMode: mode })); } catch(e) {}
+  };
   const saveSettings = (rate, cash) => {
-    try { localStorage.setItem("poker-settings", JSON.stringify({ chipRate: rate, buyInCash: cash })); } catch(e) {}
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")) || {}; localStorage.setItem("poker-settings", JSON.stringify({ ...d, chipRate: rate, buyInCash: cash })); } catch(e) {}
   };
 
   useEffect(() => {
@@ -763,14 +769,8 @@ function App() {
                 {/* Blackboard marker - top */}
                 <div style={{ position: "absolute", top: "-18px", left: "20%", right: "20%", display: "flex", alignItems: "center", gap: "6px", zIndex: 1 }}>
                   <div style={{ flex: 1, height: "1px", background: "#555" }} />
-                  <span style={{ fontSize: "9px", color: "#777", whiteSpace: "nowrap" }}>黑板</span>
+                  <span style={{ fontSize: "9px", color: "#777", whiteSpace: "nowrap" }}>陽台</span>
                   <div style={{ flex: 1, height: "1px", background: "#555" }} />
-                </div>
-                {/* Window marker - right */}
-                <div style={{ position: "absolute", right: "-24px", top: "25%", bottom: "25%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px", zIndex: 1 }}>
-                  <div style={{ flex: 1, width: "1px", background: "#555" }} />
-                  <span style={{ fontSize: "9px", color: "#777", writingMode: "vertical-rl" }}>窗戶</span>
-                  <div style={{ flex: 1, width: "1px", background: "#555" }} />
                 </div>
                 {/* Table body - pill shape */}
                 <div style={{
@@ -837,10 +837,21 @@ function App() {
             <p style={{ color: theme.textDim, fontSize: "13px", margin: 0 }}>{(() => { const d = sessionDate.current || todayStr(); const [y,m,dd] = d.split("-"); return parseInt(m) + "月" + parseInt(dd) + "日"; })()} · 共 {rounds.length} 局</p>
           </div>
 
-          {!isCapturing && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? theme.accent + "44" : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 600 }}>🏠 場地費 $<input type="text" inputMode="numeric" style={{ ...S.input, width: "40px", textAlign: "center", fontWeight: 600, color: theme.gold, padding: "2px 4px", fontSize: "13px" }} value={venueFeeAmt} onChange={e => { const v = parseInt(e.target.value) || 0; setVenueFeeAmt(v); try { localStorage.setItem("poker-settings", JSON.stringify({ chipRate, buyInCash, venueFeeAmt: v })); } catch(e2) {} }} />/人</div>
-            <div onClick={() => setVenueFee(v => !v)} style={{ width: "44px", height: "24px", borderRadius: "12px", background: venueFee ? theme.accent : theme.border, position: "relative", cursor: "pointer", flexShrink: 0 }}>
-              <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: venueFee ? "22px" : "2px", transition: "left 0.2s" }} />
+          {!isCapturing && <div style={{ padding: "12px 14px", background: theme.card, border: `1px solid ${venueFee ? (venueFeeMode === "round" ? "#f39c1244" : "#3498db44") : theme.border}`, borderRadius: "10px", marginBottom: "14px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, flexWrap: "wrap" }}>
+                <span>🏠</span>
+                <div style={{ display: "flex", borderRadius: "8px", overflow: "hidden", border: `1px solid ${theme.border}`, fontSize: "11px", fontWeight: 600 }}>
+                  <span onClick={() => { setVenueFeeMode("round"); saveVenueSettings(venueFeeAmt, "round"); }} style={{ padding: "5px 10px", cursor: "pointer", background: venueFeeMode === "round" ? "#f39c12" : theme.card, color: venueFeeMode === "round" ? "#000" : "#7a8a80", transition: "all 0.2s" }}>按局</span>
+                  <span onClick={() => { setVenueFeeMode("session"); saveVenueSettings(venueFeeAmt, "session"); }} style={{ padding: "5px 10px", cursor: "pointer", background: venueFeeMode === "session" ? "#3498db" : theme.card, color: venueFeeMode === "session" ? "#fff" : "#7a8a80", transition: "all 0.2s" }}>按場</span>
+                </div>
+                <span style={{ color: venueFeeMode === "round" ? "#f39c12" : "#3498db", fontWeight: 600 }}>$</span>
+                <input type="text" inputMode="numeric" style={{ ...S.input, width: "40px", textAlign: "center", fontWeight: 600, color: venueFeeMode === "round" ? "#f39c12" : "#3498db", padding: "2px 4px", fontSize: "13px" }} value={venueFeeAmt} onChange={e => { const v = parseInt(e.target.value) || 0; setVenueFeeAmt(v); saveVenueSettings(v, venueFeeMode); }} />
+                <span style={{ fontSize: "12px", color: "#7a8a80" }}>{venueFeeMode === "round" ? "/局/人" : "/人"}</span>
+              </div>
+              <div onClick={() => setVenueFee(v => !v)} style={{ width: "44px", height: "24px", borderRadius: "12px", background: venueFee ? theme.accent : theme.border, position: "relative", cursor: "pointer", flexShrink: 0, marginLeft: "8px" }}>
+                <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#fff", position: "absolute", top: "2px", left: venueFee ? "22px" : "2px", transition: "left 0.2s" }} />
+              </div>
             </div>
           </div>}
 
@@ -850,7 +861,7 @@ function App() {
             const pt = Object.values(pm).map(pl => {
               const roundProfit = rounds.reduce((s, r) => { const rp = r.players.find(p => p.id === pl.id); return s + (rp && rp.active ? rp.profitCash : 0); }, 0);
               const roundsPlayed = rounds.filter(r => r.players.some(p => p.id === pl.id && p.active)).length;
-              const fee = venueFee ? venueFeeAmt : 0;
+              const fee = venueFee ? (venueFeeMode === "round" ? venueFeeAmt * roundsPlayed : venueFeeAmt) : 0;
               return { ...pl, total: roundProfit - fee, fee, roundsPlayed };
             });
             const sorted = [...pt].sort((a, b) => nameSort(a.name, b.name));
@@ -882,7 +893,7 @@ function App() {
                       <tr>
                         <td style={{ padding: cp, paddingLeft: "6px", fontWeight: 600, color: theme.textDim, fontSize: "10px", background: hBg, borderRight: cb, position: "sticky", left: 0, zIndex: 2 }}>驗算</td>
                         {rounds.map(r => { const t = r.players.filter(p => p.active).reduce((a, p) => a + p.profitCash, 0); return <td key={r.id} style={{ padding: cp, textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", borderRight: cb, color: t === 0 ? theme.accent : theme.red }}>{t}</td>; })}
-                        <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: venueFee ? "#f39c12" : theme.textDim, fontSize: venueFee ? "10px" : "11px" }}>{venueFee ? "場地費$" + totalFee : sorted.reduce((a, p) => a + p.total, 0)}</td>
+                        <td style={{ padding: cp, textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: venueFee ? (venueFeeMode === "round" ? "#f39c12" : "#3498db") : theme.textDim, fontSize: venueFee ? "10px" : "11px" }}>{venueFee ? "場地費$" + totalFee : sorted.reduce((a, p) => a + p.total, 0)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -894,19 +905,28 @@ function App() {
                 <span><span style={{ color: theme.red }}>■</span> 輸</span>
               </div>
 
-              {venueFee && (
-                <div style={{ marginTop: "12px", padding: "12px 14px", background: "#f39c1211", border: "1px solid #f39c1222", borderRadius: "10px" }}>
-                  <div style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600, marginBottom: "8px" }}>🏠 場地費明細</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
-                    <span style={{ color: theme.text }}>{sorted.length} 人 × ${venueFeeAmt}</span>
-                    <span style={{ color: "#f39c12" }}>-${venueFeeAmt} / 人</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #f39c1233" }}>
-                    <span style={{ fontSize: "12px", color: "#f39c12", fontWeight: 600 }}>場主收入</span>
-                    <span style={{ fontSize: "16px", fontWeight: 700, color: "#f39c12" }}>${totalFee}</span>
+              {venueFee && (() => {
+                const feeColor = venueFeeMode === "round" ? "#f39c12" : "#3498db";
+                return (
+                <div style={{ marginTop: "12px", padding: "12px 14px", background: feeColor + "11", border: "1px solid " + feeColor + "22", borderRadius: "10px" }}>
+                  <div style={{ fontSize: "12px", color: feeColor, fontWeight: 600, marginBottom: "8px" }}>🏠 場地費明細（{venueFeeMode === "round" ? "按局" : "按場"}）</div>
+                  {venueFeeMode === "round" ? (
+                    <div style={{ fontSize: "11px", color: "#7a8a80" }}>
+                      {sorted.map(p => <div key={p.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}><span>{p.name}（{p.roundsPlayed}局）</span><span style={{ color: feeColor }}>-${p.fee}</span></div>)}
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
+                      <span style={{ color: theme.text }}>{sorted.length} 人 × ${venueFeeAmt}</span>
+                      <span style={{ color: feeColor }}>-${venueFeeAmt} / 人</span>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px", paddingTop: "8px", borderTop: "1px solid " + feeColor + "33" }}>
+                    <span style={{ fontSize: "12px", color: feeColor, fontWeight: 600 }}>場主收入</span>
+                    <span style={{ fontSize: "16px", fontWeight: 700, color: feeColor }}>${totalFee}</span>
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </>);
           })()}
           </div>
