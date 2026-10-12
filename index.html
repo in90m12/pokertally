@@ -240,15 +240,19 @@ function App() {
   const [buyInCash, setBuyInCash] = useState(() => {
     try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.buyInCash || DEFAULT_BUY_IN_CASH; } catch(e) { return DEFAULT_BUY_IN_CASH; }
   });
-  const [venueFeeAmt, setVenueFeeAmt] = useState(() => {
-    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeAmt || 50; } catch(e) { return 50; }
-  });
   const [venueFeeMode, setVenueFeeMode] = useState(() => {
-    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeMode || "session"; } catch(e) { return "session"; }
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeMode || "round"; } catch(e) { return "round"; }
   });
+  const [venueFeeAmtRound, setVenueFeeAmtRound] = useState(() => {
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeAmtRound ?? 10; } catch(e) { return 10; }
+  });
+  const [venueFeeAmtSession, setVenueFeeAmtSession] = useState(() => {
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")); return d?.venueFeeAmtSession ?? 50; } catch(e) { return 50; }
+  });
+  const venueFeeAmt = venueFeeMode === "round" ? venueFeeAmtRound : venueFeeAmtSession;
   const buyInChips = buyInCash * chipRate;
-  const saveVenueSettings = (amt, mode) => {
-    try { const d = JSON.parse(localStorage.getItem("poker-settings")) || {}; localStorage.setItem("poker-settings", JSON.stringify({ ...d, venueFeeAmt: amt, venueFeeMode: mode })); } catch(e) {}
+  const saveVenueSettings = (amtRound, amtSession, mode) => {
+    try { const d = JSON.parse(localStorage.getItem("poker-settings")) || {}; localStorage.setItem("poker-settings", JSON.stringify({ ...d, venueFeeAmtRound: amtRound, venueFeeAmtSession: amtSession, venueFeeMode: mode })); } catch(e) {}
   };
   const saveSettings = (rate, cash) => {
     try { const d = JSON.parse(localStorage.getItem("poker-settings")) || {}; localStorage.setItem("poker-settings", JSON.stringify({ ...d, chipRate: rate, buyInCash: cash })); } catch(e) {}
@@ -842,11 +846,11 @@ function App() {
               <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, flexWrap: "wrap" }}>
                 <span>🏠</span>
                 <div style={{ display: "flex", borderRadius: "8px", overflow: "hidden", border: `1px solid ${theme.border}`, fontSize: "11px", fontWeight: 600 }}>
-                  <span onClick={() => { setVenueFeeMode("round"); saveVenueSettings(venueFeeAmt, "round"); }} style={{ padding: "5px 10px", cursor: "pointer", background: venueFeeMode === "round" ? "#f39c12" : theme.card, color: venueFeeMode === "round" ? "#000" : "#7a8a80", transition: "all 0.2s" }}>按局</span>
-                  <span onClick={() => { setVenueFeeMode("session"); saveVenueSettings(venueFeeAmt, "session"); }} style={{ padding: "5px 10px", cursor: "pointer", background: venueFeeMode === "session" ? "#3498db" : theme.card, color: venueFeeMode === "session" ? "#fff" : "#7a8a80", transition: "all 0.2s" }}>按場</span>
+                  <span onClick={() => { setVenueFeeMode("round"); saveVenueSettings(venueFeeAmtRound, venueFeeAmtSession, "round"); }} style={{ padding: "5px 10px", cursor: "pointer", background: venueFeeMode === "round" ? "#f39c12" : theme.card, color: venueFeeMode === "round" ? "#000" : "#7a8a80", transition: "all 0.2s" }}>按局</span>
+                  <span onClick={() => { setVenueFeeMode("session"); saveVenueSettings(venueFeeAmtRound, venueFeeAmtSession, "session"); }} style={{ padding: "5px 10px", cursor: "pointer", background: venueFeeMode === "session" ? "#3498db" : theme.card, color: venueFeeMode === "session" ? "#fff" : "#7a8a80", transition: "all 0.2s" }}>按場</span>
                 </div>
                 <span style={{ color: venueFeeMode === "round" ? "#f39c12" : "#3498db", fontWeight: 600 }}>$</span>
-                <input type="text" inputMode="numeric" style={{ ...S.input, width: "40px", textAlign: "center", fontWeight: 600, color: venueFeeMode === "round" ? "#f39c12" : "#3498db", padding: "2px 4px", fontSize: "13px" }} value={venueFeeAmt} onChange={e => { const v = parseInt(e.target.value) || 0; setVenueFeeAmt(v); saveVenueSettings(v, venueFeeMode); }} />
+                <input type="text" inputMode="numeric" style={{ ...S.input, width: "40px", textAlign: "center", fontWeight: 600, color: venueFeeMode === "round" ? "#f39c12" : "#3498db", padding: "2px 4px", fontSize: "13px" }} value={venueFeeAmt} onChange={e => { const v = parseInt(e.target.value) || 0; if (venueFeeMode === "round") { setVenueFeeAmtRound(v); saveVenueSettings(v, venueFeeAmtSession, "round"); } else { setVenueFeeAmtSession(v); saveVenueSettings(venueFeeAmtRound, v, "session"); } }} />
                 <span style={{ fontSize: "12px", color: "#7a8a80" }}>{venueFeeMode === "round" ? "/局/人" : "/人"}</span>
               </div>
               <div onClick={() => setVenueFee(v => !v)} style={{ width: "44px", height: "24px", borderRadius: "12px", background: venueFee ? theme.accent : theme.border, position: "relative", cursor: "pointer", flexShrink: 0, marginLeft: "8px" }}>
