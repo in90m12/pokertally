@@ -424,7 +424,7 @@ function App() {
   const editRound = (idx) => {
     if (currentRound && !confirm("目前有進行中的牌局，確定要放棄並修改第 " + (idx + 1) + " 局嗎？")) return;
     const r = rounds[idx];
-    const editable = { ...r, settled: false, players: r.players.map(p => ({ ...p, finalChips: String(p.finalChips || 0) })) };
+    const editable = { ...r, settled: false, players: r.players.map(p => ({ ...p, finalChips: String(chipRate === 100 ? Math.round((p.finalChips || 0) / 100) : (p.finalChips || 0)) })) };
     setCurrentRound(editable);
     setEditingRoundIdx(idx);
     setView("round");
@@ -432,16 +432,18 @@ function App() {
 
   const ap = currentRound ? currentRound.players.filter(p => p.active) : [];
   const totalPool = ap.reduce((s, p) => s + (1 + p.rebuys) * buyInChips, 0);
-  const totalFinal = ap.reduce((s, p) => s + (parseInt(p.finalChips) || 0), 0);
+  const auto00 = chipRate === 100;
+  const parseFinal = (v) => { const n = parseInt(v) || 0; return auto00 ? n * 100 : n; };
+  const totalFinal = ap.reduce((s, p) => s + parseFinal(p.finalChips), 0);
   const balanced = totalFinal === totalPool;
   const diff = totalFinal - totalPool;
 
   const settleRound = () => {
     if (!balanced) return;
     const settled = { ...currentRound, settled: true, players: currentRound.players.map(p => ({
-      ...p, finalChips: p.active ? (parseInt(p.finalChips) || 0) : 0,
-      profit: p.active ? ((parseInt(p.finalChips) || 0) - (1 + p.rebuys) * buyInChips) : 0,
-      profitCash: p.active ? Math.round(((parseInt(p.finalChips) || 0) - (1 + p.rebuys) * buyInChips) / chipRate) : 0,
+      ...p, finalChips: p.active ? parseFinal(p.finalChips) : 0,
+      profit: p.active ? (parseFinal(p.finalChips) - (1 + p.rebuys) * buyInChips) : 0,
+      profitCash: p.active ? Math.round((parseFinal(p.finalChips) - (1 + p.rebuys) * buyInChips) / chipRate) : 0,
     }))};
     if (editingRoundIdx !== null) {
       const oldRound = rounds[editingRoundIdx];
@@ -688,7 +690,10 @@ function App() {
                   <button style={S.rbtn} onClick={() => setRebuys(p.id, 1)}>+</button>
                   <div style={{ flex: 1 }} />
                   <span style={{ fontSize: "12px", color: theme.textDim, whiteSpace: "nowrap" }}>結算籌碼</span>
-                  <input type="text" inputMode="numeric" pattern="[0-9]*" style={{ ...S.chipInput, width: "auto", flex: "0 1 90px", minWidth: "60px" }} value={p.finalChips} onChange={e => { if (/^\d*$/.test(e.target.value)) setFinalChips(p.id, e.target.value); }} placeholder="0" />
+                  <div style={{ display: "flex", alignItems: "center", gap: 0, borderRadius: "8px", overflow: "hidden", border: "1px solid " + theme.cardAlt, background: theme.bg }}>
+                    <input type="text" inputMode="numeric" pattern="[0-9]*" style={{ ...S.chipInput, width: "auto", flex: "0 1 " + (auto00 ? "60px" : "90px"), minWidth: auto00 ? "40px" : "60px", border: "none", borderRadius: 0 }} value={p.finalChips} onChange={e => { if (/^\d*$/.test(e.target.value)) setFinalChips(p.id, e.target.value); }} placeholder="0" />
+                    {auto00 && <span style={{ color: theme.textDim, fontSize: "14px", fontWeight: 600, paddingRight: "8px", userSelect: "none" }}>00</span>}
+                  </div>
                 </div>
               </div>
             ))}
